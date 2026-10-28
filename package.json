@@ -1,0 +1,22 @@
+{
+  "name": "belief-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/build-info.mjs && vite",
+    "build": "node scripts/build-info.mjs && vite build",
+    "preview": "vite preview",
+    "test": "node scripts/build-info.mjs && vitest run",
+    "test:safety": "node scripts/build-info.mjs && vitest run tests/safety",
+    "icons": "node scripts/make-icons.mjs",
+    "e2e": "node tests/e2e/smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.64.1",
+    "sharp": "^0.35.5",
+    "vite": "^5.4.21",
+    "vite-plugin-pwa": "^0.20.5",
+    "vitest": "^2.1.9"
+  }
+}

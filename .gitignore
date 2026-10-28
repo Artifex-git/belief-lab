@@ -1,0 +1,8 @@
+node_modules
+dist
+.env*
+.vercel
+playwright-report
+test-results
+src/build-info.json
+.DS_Store
