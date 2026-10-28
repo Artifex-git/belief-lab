@@ -1,0 +1,27 @@
+import { chromium, devices } from "playwright-core";
+import { spawn } from "node:child_process";
+const srv = spawn("npx", ["vite", "preview", "--port", "4175", "--strictPort"], { stdio: "ignore" });
+await new Promise((r) => setTimeout(r, 2500));
+const fails = []; const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) fails.push(m); };
+const b = await chromium.launch({ executablePath: process.env.CHROMIUM || "/usr/bin/chromium", args: ["--no-sandbox"] });
+const page = await (await b.newContext({ ...devices["iPhone 13"] })).newPage();
+const errs = []; page.on("pageerror", (e) => errs.push(e.message));
+await page.route("**/fonts.g*/**", (r) => r.abort());
+await page.goto("http://localhost:4175/"); await page.waitForSelector("#nav button", { state: "attached" });
+for (let i = 0; i < 4 && await page.locator('[data-act="wnext"]').count(); i++) await page.click('[data-act="wnext"]');
+if (await page.locator('[data-act="wdone"]').count()) await page.click('[data-act="wdone"]');
+await page.waitForSelector('[data-act="mopick"]');
+await page.click('[data-act="mopick"][data-v="2"]');
+ok(await page.locator('[data-act="anchoropen"]').count() > 0 && await page.locator('[data-act="mofind"]').count() === 0, "mood 2: Anchor offered, 'Find the belief' (Lab) not offered");
+await page.click('[data-act="mosave"]'); await page.waitForTimeout(400);
+ok(await page.locator(".dipcard").count() === 1, "Today shows the dip card after a low check-in");
+await page.evaluate(() => { location.hash = "#lab"; });
+await page.click('[data-go="talk"]'); await page.waitForTimeout(300);
+const labTried = await page.evaluate(() => { document.querySelector('[data-go="talk"]'); const b = document.createElement("button"); b.dataset.go = "lab"; document.body.appendChild(b); b.click(); return document.querySelector("section.view.on")?.id; });
+ok(labTried === "v-anchor", "going to the Lab on a dip day lands on the Anchor");
+for (let i = 0; i < 5; i++) { if (i === 3) await page.fill("#an-step", "Drink a glass of water."); await page.click('[data-act="anchornext"]'); }
+ok((await page.textContent("#v-anchor")).includes("That is enough for now"), "five steps complete");
+ok((await page.textContent("#v-anchor")).includes("doctor"), "caution + support shown");
+await page.screenshot({ path: "shots/06-anchor-done.png" });
+ok(errs.length === 0, "no page errors" + (errs[0] ? ": " + errs[0] : ""));
+await b.close(); srv.kill(); process.exit(fails.length ? 1 : 0);

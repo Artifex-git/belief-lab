@@ -1,3 +1,4 @@
+import * as ANCHOR from "./anchor.js";
 
 // [domain, belief, preferred, root, move] -- 130-entry universal limiting-beliefs library (v0.3)
 const DOMAINS=[["worth","Worth","Worth"],["belonging","Belonging","Belonging"],["safety","Safety","Safety"],["control","Control & Agency","Control & Agency"],["desire","Desire","Desire"],["achievement","Achievement & Identity","Achievement & Identity"],["meaning","Meaning & Purpose","Meaning & Purpose"],["deservingness","Deservingness & Guilt","Deservingness & Guilt"],["judgment","Judgment & Comparison","Judgment & Comparison"],["attachment","Attachment & Outcome","Attachment & Outcome"],["time_scarcity","Time & Scarcity","Time & Scarcity"],["change","Change & the Unknown","Change & the Unknown"],["authenticity","Authenticity & Self-Expression","Authenticity & Self-Expression"]];
@@ -653,15 +654,16 @@ const EXAMPLES=[
 
 /* ---------- APP SHELL ---------- */
 const VIEWS=[["today","Today"],["talk","Talk"],["practice","Practice"],["compass","Compass"],["journey","Journey"]];
-const NAV_PARENT={lab:"talk",library:"talk",tree:"practice"};
+const NAV_PARENT={lab:"talk",library:"talk",tree:"practice",anchor:"today"};
 const ICONS={today:'<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/>',
  talk:'<path d="M4 5h16v11H9l-5 4z"/>',compass:'<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
  journey:'<path d="M4 19c4 0 4-6 8-6s4-6 8-6"/><circle cx="4" cy="19" r="1.6"/><circle cx="20" cy="7" r="1.6"/>',
  practice:'<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.8 6.7 19.4l1.2-6-4.5-4.1 6-.7z"/>'};
 const PERSON_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>';
-const RENDER={welcome:()=>rWelcome(),today:()=>rToday(),talk:()=>rTalk(),compass:()=>rCompass(),journey:()=>rJourney(),practice:()=>rPractice(),tree:()=>rTree(),you:()=>rYou(),lab:()=>rLab(),library:()=>rLibrary()};
+const RENDER={welcome:()=>rWelcome(),today:()=>rToday(),talk:()=>rTalk(),compass:()=>rCompass(),journey:()=>rJourney(),practice:()=>rPractice(),tree:()=>rTree(),you:()=>rYou(),lab:()=>rLab(),library:()=>rLibrary(),anchor:()=>rAnchor()};
 let cur="today";
-function go(v){try{stopMic()}catch(e){}cur=RENDER[v]?v:"today";rerender(true);try{history.replaceState(null,"","#"+cur)}catch(e){}try{scrollTo({top:0})}catch(e){}}
+const dipNow=()=>{const t=todayMood();return ANCHOR.inDip(t&&t.mood,lsGet("bl-dip"),todayStr())};
+function go(v){try{stopMic()}catch(e){}v=ANCHOR.routeView(v,dipNow());cur=RENDER[v]?v:"today";rerender(true);try{history.replaceState(null,"","#"+cur)}catch(e){}try{scrollTo({top:0})}catch(e){}}
 function rerender(force){
   if(!force){const ae=document.activeElement,v=document.getElementById("v-"+cur);if(ae&&v&&v.contains(ae)&&(ae.tagName==="TEXTAREA"||(ae.tagName==="INPUT"&&ae.type==="text")))return}
   const p=NAV_PARENT[cur]||cur;
@@ -965,17 +967,18 @@ function rToday(){
 function rCheckin(){
   const el=$("#checkin");if(!el)return;
   const tm=todayMood();
+  if(dipNow()&&morn.stage!=="low"){el.innerHTML=(tm?`<div class="done-line"><span class="pill">${tm.mood}/10</span><span>Checked in</span></div>`:"")+dipCard();return}
   if(tm&&morn.stage!=="low"){el.innerHTML=`<div class="done-line"><span class="pill">${tm.mood}/10</span><span>Checked in${tm.belief?`: <i>${esc(cut(tm.belief,90))}</i>`:""}</span></div>`;return}
   if(morn.stage==="low"){
     el.innerHTML=`<section class="card"><p class="lbl">${morn.mood}/10 right now</p><h2 class="ask">What's weighing on you?</h2>
      <textarea id="mo-belief" placeholder="Say it however it comes. One line is enough."></textarea>
      <p class="tip"><span class="etag">Plausible</span>Try not fighting the feeling for a minute. Let it be there. That tends to change how it feels, not whether it is there.</p>
-     <div class="row"><button class="btn" data-act="motalk">Talk it through</button><button class="btn ghost" data-act="mofind">Find the belief</button><button class="linkbtn" data-act="mosave">Just save</button></div></section>`;
+     ${morn.mood<=ANCHOR.DIP_MOOD?`<p class="tip">This sounds like a dip day. The Anchor is for exactly this.</p><div class="row"><button class="btn" data-act="anchoropen">Open the Anchor</button><button class="btn ghost" data-act="motalk">Talk it through</button><button class="linkbtn" data-act="mosave">Just save</button></div>`:`<div class="row"><button class="btn" data-act="motalk">Talk it through</button><button class="btn ghost" data-act="mofind">Find the belief</button><button class="linkbtn" data-act="mosave">Just save</button></div>`}</section>`;
     return;
   }
   el.innerHTML=`<section class="card"><h2 class="ask">How are you, honestly?</h2>
    <div class="moodpick" role="group" aria-label="Mood from 0 to 10">${Array.from({length:11},(_,i)=>`<button class="mp" data-act="mopick" data-v="${i}" aria-label="${i} out of 10">${i}</button>`).join("")}</div>
-   <div class="row" style="justify-content:space-between;margin-top:6px"><span class="hint">Rough</span><span class="hint">Great</span></div></section>`;
+   <div class="row" style="justify-content:space-between;margin-top:6px"><span class="hint">Rough</span><span class="hint">Great</span></div><div class="row" style="margin-top:8px"><button class="linkbtn" data-act="anchoropen">I’m in a dip</button></div></section>`;
 }
 const moodRec=(belief)=>({_id:morn._id,kind:"mood",created_at:Date.now(),date:todayStr(),mood:morn.mood,belief:belief||"",surrendered:false});
 ACT.mopick=a=>{
@@ -991,7 +994,7 @@ let briefBusy=false;
 function rDay(){
   const el=$("#day");if(!el)return;
   const tm=todayMood(),b=todayBrief();
-  if(!tm){el.innerHTML="";return}
+  if(!tm||dipNow()){el.innerHTML="";return}
   if(b){el.innerHTML=dayHTML(b);return}
   if(briefBusy){el.innerHTML=`<section class="card">${thinking("Your coach is writing your day")}</section>`;return}
   if(autoBriefDate!==todayStr()&&lsGet("bl-autobrief")!==todayStr()){autoBriefDate=todayStr();lsSet("bl-autobrief",todayStr());makeBrief();return}
@@ -2302,3 +2305,31 @@ rerender(true);initStore();
 
 /* ---------- bridge for platform modules (feedback, import, install) ---------- */
 window.BL={showCare,distress,store,put,rerender,esc,ACT,lsGet,lsSet};
+
+/* ---------- THE ANCHOR (Appendix F) ---------- */
+let an={i:0,step:""};
+function dipCard(){return `<section class="card dipcard"><p class="lbl">A dip day</p><h2 class="ask">Today can be small.</h2><p>The Anchor is the short version of the book, for days like this. Five steps, in order.</p><div class="row" style="margin-top:10px"><button class="btn" data-act="anchoropen">Open the Anchor</button></div></section>`}
+function rAnchor(){
+  const el=$("#v-anchor"),n=ANCHOR.STEPS.length,last=an.i>=n;
+  if(last){
+    el.innerHTML=`<div class="hello"><p class="lbl">The Anchor</p><h1>That is enough for now.</h1></div>
+    <section class="card"><p>${esc(ANCHOR.CAUTION)}</p><div class="row" style="margin-top:12px"><button class="btn ghost" data-act="anchorsupport">Where to find support</button></div></section>
+    <div class="row" style="margin-top:14px"><button class="btn" data-act="anchorclose">Back to today</button><button class="btn ghost" data-act="anchorback">Back</button></div>`;return}
+  const S=ANCHOR.STEPS[an.i];
+  el.innerHTML=`<div class="hello"><p class="lbl">The Anchor · ${an.i+1} of ${n}</p><h1>${esc(S.h)}</h1></div>
+  ${an.i===0?`<p class="hint" style="margin-bottom:12px">${esc(ANCHOR.INTRO)}</p>`:""}
+  <section class="card"><p class="big-p">${esc(S.t)}</p>
+  ${S.breathe?`<div class="row" style="margin-top:12px"><button class="btn small" data-act="breathe">Breathe for a minute</button></div>`:""}
+  ${S.input?`<label class="f" for="an-step">Your smallest true step (optional)</label><textarea id="an-step" placeholder="Drink a glass of water. Step outside for two minutes.">${esc(an.step)}</textarea>`:""}</section>
+  <div class="row" style="margin-top:14px"><button class="btn" data-act="anchornext">${an.i===n-1?"Done":"Next"}</button>${an.i>0?'<button class="btn ghost" data-act="anchorback">Back</button>':'<button class="btn ghost" data-act="anchorclose">Not now</button>'}</div>`;
+}
+ACT.anchoropen=()=>{lsSet("bl-dip",todayStr());an={i:0,step:""};go("anchor")};
+ACT.anchorclose=()=>go("today");
+ACT.anchorback=()=>{const t=$("#an-step");if(t)an.step=t.value;an.i=Math.max(0,an.i-1);rAnchor()};
+ACT.anchorsupport=()=>showCare("sustained");
+ACT.anchornext=async()=>{
+  const t=$("#an-step");if(t)an.step=t.value.trim();
+  if(an.step&&distress(an.step)){showCare();return}
+  if(an.i===ANCHOR.STEPS.length-1&&an.step)await put({kind:"anchor",date:todayStr(),created_at:Date.now(),step:an.step});
+  an.i++;rAnchor();try{scrollTo({top:0})}catch(e){}
+};

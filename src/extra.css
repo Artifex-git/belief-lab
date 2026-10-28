@@ -12,3 +12,5 @@ body.bare .installcard{display:none}
 .updbar{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;min-height:44px;border:0;border-radius:999px;padding:0 18px;background:var(--teal);color:var(--on-teal);font-weight:600}
 ul.wn{margin:10px 0 0;padding-left:20px;display:grid;gap:8px}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+.dipcard{border-color:var(--gold)}
+.big-p{font-size:1.1rem;line-height:1.55}
