@@ -1,7 +1,13 @@
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { viteSingleFile } from "vite-plugin-singlefile";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => mode === "artifact" ? {
+  // One self-contained HTML file for claude.ai: the coach then runs on your Claude subscription.
+  plugins: [viteSingleFile()],
+  resolve: { alias: { "virtual:pwa-register": "/src/pwa-stub.js" } },
+  build: { outDir: "dist-artifact", emptyOutDir: true },
+} : {
   plugins: [
     VitePWA({
       registerType: "prompt",

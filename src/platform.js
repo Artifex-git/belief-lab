@@ -57,7 +57,8 @@ async function save({ filename, data }) {
   document.body.appendChild(a); a.click(); a.remove();
 }
 
-window.claude = {
+// Inside claude.ai the real runtime exists (AI on the person's own subscription): keep it.
+if (!(window.claude && window.claude.use)) window.claude = {
   use: async (name) => {
     if (name === "sample") return sample;
     if (name === "downloads") return { save };
