@@ -3,6 +3,7 @@
 Lines under a version are shown to testers in the app under "What's new". Write them in plain language. Add `(#12)` when a line came from a feedback issue.
 
 ## Unreleased
+- New: The morning practice from the book (Appendix I), under Practice. It opens with the breathing safety note, then arrive, breathe, move and set the day.
 - New: The Anchor, the book's page for low days. Five short steps, an "I'm in a dip" button on Today, and on days you check in at 3 or lower the app offers the Anchor and keeps the Lab out of reach.
 
 ## 0.1.0
