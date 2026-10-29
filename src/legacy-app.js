@@ -2313,26 +2313,46 @@ new MutationObserver(()=>{if(micQueued)return;micQueued=true;queueMicrotask(()=>
 function micHint(id,t){const h=document.querySelector(`[data-hint="${id}"]`);if(h)h.textContent=t}
 function micUI(id,on){const b=document.querySelector(`.mic[data-for="${id}"]`);if(!b)return;b.classList.toggle("on",on);b.querySelector("span").textContent=on?"Listening… tap to stop":"Speak"}
 document.addEventListener("visibilitychange",()=>{if(document.hidden)stopMic()});
-function stopMic(){if(rec){const r=rec;rec=null;try{r.stop()}catch(e){}micUI(r._for,false)}}
+function stopMic(){if(rec){const r=rec;rec=null;r._err="stopped";try{r.stop()}catch(e){}micUI(r._for,false)}}
 ACT.miclang=()=>{lsSet("bl-lang",micLang()==="nl-NL"?"en-US":"nl-NL");document.querySelectorAll(".miclang").forEach(b=>b.textContent=micLang().slice(0,2).toUpperCase())};
-ACT.mic=a=>{
-  const id=a.dataset.for;
-  if(rec){const was=rec._for;stopMic();if(was===id)return}
-  if(!SR){micHint(id,IN_VIEWER?"Recording does not work inside the Claude viewer. Use the microphone key on your keyboard, or open the app from your home screen.":"Voice input is not available in this browser. Use the microphone key on your keyboard.");return}
+const IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+function micErr(code){
+  if(code==="not-allowed")return IN_VIEWER?"Recording is not allowed inside this viewer. Use your keyboard's microphone key instead.":"The microphone is blocked. On iPhone: Settings, Safari, Microphone, set to Ask or Allow. Or use the microphone key on your keyboard.";
+  if(code==="service-not-allowed")return "Voice input is switched off on this device. On iPhone: Settings, General, Keyboard, turn on Enable Dictation. Or use the microphone key on your keyboard.";
+  if(code==="no-speech")return "Nothing heard. Tap Speak and try again.";
+  if(code==="network")return "Voice input needs an internet connection.";
+  if(code==="audio-capture")return "No microphone found.";
+  return "Voice input stopped ("+(code||"unknown")+"). The microphone key on your keyboard also works.";
+}
+function startRec(id,restarts){
   const ta=document.getElementById(id);if(!ta)return;
-  const r=new SR();r.lang=micLang();r.interimResults=true;r.continuous=true;r._for=id;
+  const r=new SR();r.lang=micLang();r.interimResults=true;r.continuous=!IOS;r._for=id;r._n=restarts||0;r._got=false;
   const base=ta.value.trim()?ta.value.replace(/\s*$/," "):"";
   let fin="";
   r.onresult=e=>{
+    r._got=true;
     let interim="";
     for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t+" ";else interim+=t}
     const t=document.getElementById(id);if(!t)return;
     t.value=(base+fin+interim).replace(/\s+$/,interim?"":" ");
     if(!interim)t.dispatchEvent(new Event("input",{bubbles:true}));
   };
-  r.onerror=e=>{micHint(id,e.error==="not-allowed"||e.error==="service-not-allowed"?(window.claude&&window.claude.use?"Recording is not allowed inside this viewer. Use your keyboard's dictation instead: the mic key on a phone keyboard, or Win+H on Windows.":"Microphone is blocked. Allow it in your browser settings, or use your keyboard's dictation."):e.error==="no-speech"?"Nothing heard. Tap Speak and try again.":e.error==="network"?"Voice input needs an internet connection.":"Voice input stopped.")};
-  r.onend=()=>{clearTimeout(r._t);if(rec===r)rec=null;micUI(id,false);const t=document.getElementById(id);if(t)t.dispatchEvent(new Event("input",{bubbles:true}))};
-  try{r.start();rec=r;r._t=setTimeout(stopMic,120000);micUI(id,true);micHint(id,"");ta.focus()}catch(e){micHint(id,"Could not start voice input.")}
+  r.onerror=e=>{r._err=e.error;if(e.error==="aborted")return;if(e.error!=="no-speech"||!r._got)micHint(id,micErr(e.error))};
+  r.onend=()=>{
+    clearTimeout(r._t);
+    const t=document.getElementById(id);if(t)t.dispatchEvent(new Event("input",{bubbles:true}));
+    // iPhone ends a session after each phrase: keep listening until the user taps stop.
+    if(rec===r&&!r._err&&r._n<30){rec=null;try{startRec(id,r._n+1);return}catch(e){}}
+    if(rec===r)rec=null;micUI(id,false);
+  };
+  r.start();rec=r;r._t=setTimeout(stopMic,120000);micUI(id,true);
+}
+ACT.mic=a=>{
+  const id=a.dataset.for;
+  if(rec){const was=rec._for;stopMic();if(was===id)return}
+  if(!SR){micHint(id,IN_VIEWER?"Recording does not work inside the Claude viewer. Use the microphone key on your keyboard, or open the app from your home screen.":"Voice input is not available in this browser. Use the microphone key on your keyboard.");return}
+  const ta=document.getElementById(id);if(!ta)return;
+  try{micHint(id,"");startRec(id,0);ta.focus()}catch(e){micHint(id,micErr(e&&e.name))}
 };
 
 /* ---------- boot ---------- */

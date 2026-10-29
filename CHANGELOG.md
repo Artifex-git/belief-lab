@@ -3,6 +3,7 @@
 Lines under a version are shown to testers in the app under "What's new". Write them in plain language. Add `(#12)` when a line came from a feedback issue.
 
 ## Unreleased
+- Voice on iPhone: keeps listening after each phrase instead of stopping, and says what to switch on (Dictation, microphone permission) when the phone blocks it.
 - New practices from the book: The Loop Audit (Appendix B) and Is this a pull? (Appendix C). Both are diagnostics, not tests.
 - Voice: recording no longer starts inside the Claude viewer, where it was blocked and could hang the page. It also stops after two minutes or when you leave the app, and writes to the entry less often while you speak.
 - Accessibility: fixed heading order, tab roles and page landmarks found by an automated audit (axe) in light and dark. Bottom bar and Practice rows no longer run off screen at large text.
