@@ -3,6 +3,7 @@ import { recurringRoot } from "./roots.js";
 import { weekKey, ritualOffered } from "./ritual.js";
 import { moveTag, FLOWS, STICKS } from "./moves.js";
 import { searchLog, excerpt } from "./search.js";
+import { BOOK_PRACTICES } from "./book-practices.js";
 
 // [domain, belief, preferred, root, move] -- 130-entry universal limiting-beliefs library (v0.3)
 const DOMAINS=[["worth","Worth","Worth"],["belonging","Belonging","Belonging"],["safety","Safety","Safety"],["control","Control & Agency","Control & Agency"],["desire","Desire","Desire"],["achievement","Achievement & Identity","Achievement & Identity"],["meaning","Meaning & Purpose","Meaning & Purpose"],["deservingness","Deservingness & Guilt","Deservingness & Guilt"],["judgment","Judgment & Comparison","Judgment & Comparison"],["attachment","Attachment & Outcome","Attachment & Outcome"],["time_scarcity","Time & Scarcity","Time & Scarcity"],["change","Change & the Unknown","Change & the Unknown"],["authenticity","Authenticity & Self-Expression","Authenticity & Self-Expression"]];
@@ -1492,6 +1493,7 @@ const EX=[
    {t:"choice",k:"where",q:"Where did your attention land most?",opts:["Head or jaw","Neck or shoulders","Chest","Stomach","Back","Legs or feet","Nowhere in particular"]},
    {t:"text",k:"ask",q:"If that place could ask for one thing right now, what would it be? (Just imagine.)",ph:"A walk. A glass of water. To stop for today."}]}
 ];
+EX.push(...BOOK_PRACTICES);
 const DAILY_BONUS=5;
 function thresholdText(a){return a.m1==="Yes"?"beyond a month: you can already feel it close":a.y1==="Yes"?"somewhere between a month and a year":a.y3==="Yes"?"somewhere between one and three years":a.y10==="Yes"?"somewhere between three and ten years":"before ten years: it doesn't feel believable yet"}
 function dayNum(){const d=new Date();return Math.floor((d.getTime()-d.getTimezoneOffset()*6e4)/DAY)}
@@ -1630,7 +1632,7 @@ function rRunner(el){
     body=`<p class="pullh">${esc(pr.a[S.k]||"")}</p>${S.t==="pickTop"?`<p class="hint" style="margin-top:8px">Or pick another:</p><div class="chips">${items.map(x=>`<button class="chip" data-act="prpick" data-v="${esc(x)}" aria-pressed="${pr.a[S.k]===x}">${esc(cut(x,40))}</button>`).join("")}</div>`:""}`;}
   else if(S.t==="timer")body=`<div class="timer"><p class="tnum" id="pr-t">${fmtSec(S.secs)}</p><div class="row" style="justify-content:center"><button class="btn" data-act="prtimer" data-s="${S.secs}">Start</button></div></div>`;
   else if(S.t==="ai")body=`<div id="pr-ai">${pr.ai[S.k]?`<div class="reflect">${nl2br(pr.ai[S.k])}</div>`:thinking("Reading what you wrote")}</div>`;
-  else if(S.t==="info")body=`<p>${esc(S.body||"")}</p>`;
+  else if(S.t==="info")body=`<p style="white-space:pre-line">${esc(typeof S.body==="function"?S.body(pr.a):(S.body||""))}</p>`;
   el.innerHTML=`<div class="talk-top"><button class="linkbtn" data-act="prquit">All exercises</button><span class="lbl">${esc(E.title)}</span></div>
   <div class="stagebar" aria-hidden="true">${E.steps.map((s,i)=>`<i class="${i<pr.i?"done":i===pr.i?"now":""}"></i>`).join("")}</div>
   <section class="card">${pr.i===0?`<p class="hint" style="margin-bottom:10px"><span class="etag">${E.tag}</span>${esc(E.why)}${E.tagNote?` <span class="muted">(${esc(E.tagNote)})</span>`:""}</p>`:""}
@@ -2294,7 +2296,8 @@ ACT.export=async()=>{
 };
 ACT.histtog=a=>{lsSet("bl-hist",!!a.checked)};
 /* ---------- VOICE INPUT ---------- */
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const IN_VIEWER=!!(window.claude&&window.claude.use&&!window.__blShim);
+const SR=IN_VIEWER?null:(window.SpeechRecognition||window.webkitSpeechRecognition);
 let rec=null;
 const micLang=()=>lsGet("bl-lang")||((navigator.language||"").toLowerCase().startsWith("nl")?"nl-NL":"en-US");
 const MIC_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
@@ -2309,12 +2312,13 @@ let micQueued=false;
 new MutationObserver(()=>{if(micQueued)return;micQueued=true;queueMicrotask(()=>{micQueued=false;addMics()})}).observe(document.querySelector("main"),{childList:true,subtree:true});
 function micHint(id,t){const h=document.querySelector(`[data-hint="${id}"]`);if(h)h.textContent=t}
 function micUI(id,on){const b=document.querySelector(`.mic[data-for="${id}"]`);if(!b)return;b.classList.toggle("on",on);b.querySelector("span").textContent=on?"Listening… tap to stop":"Speak"}
+document.addEventListener("visibilitychange",()=>{if(document.hidden)stopMic()});
 function stopMic(){if(rec){const r=rec;rec=null;try{r.stop()}catch(e){}micUI(r._for,false)}}
 ACT.miclang=()=>{lsSet("bl-lang",micLang()==="nl-NL"?"en-US":"nl-NL");document.querySelectorAll(".miclang").forEach(b=>b.textContent=micLang().slice(0,2).toUpperCase())};
 ACT.mic=a=>{
   const id=a.dataset.for;
   if(rec){const was=rec._for;stopMic();if(was===id)return}
-  if(!SR){micHint(id,"Voice input is not available in this browser. Use the microphone key on your keyboard.");return}
+  if(!SR){micHint(id,IN_VIEWER?"Recording does not work inside the Claude viewer. Use the microphone key on your keyboard, or open the app from your home screen.":"Voice input is not available in this browser. Use the microphone key on your keyboard.");return}
   const ta=document.getElementById(id);if(!ta)return;
   const r=new SR();r.lang=micLang();r.interimResults=true;r.continuous=true;r._for=id;
   const base=ta.value.trim()?ta.value.replace(/\s*$/," "):"";
@@ -2324,11 +2328,11 @@ ACT.mic=a=>{
     for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t+" ";else interim+=t}
     const t=document.getElementById(id);if(!t)return;
     t.value=(base+fin+interim).replace(/\s+$/,interim?"":" ");
-    t.dispatchEvent(new Event("input",{bubbles:true}));
+    if(!interim)t.dispatchEvent(new Event("input",{bubbles:true}));
   };
   r.onerror=e=>{micHint(id,e.error==="not-allowed"||e.error==="service-not-allowed"?(window.claude&&window.claude.use?"Recording is not allowed inside this viewer. Use your keyboard's dictation instead: the mic key on a phone keyboard, or Win+H on Windows.":"Microphone is blocked. Allow it in your browser settings, or use your keyboard's dictation."):e.error==="no-speech"?"Nothing heard. Tap Speak and try again.":e.error==="network"?"Voice input needs an internet connection.":"Voice input stopped.")};
-  r.onend=()=>{if(rec===r)rec=null;micUI(id,false)};
-  try{r.start();rec=r;micUI(id,true);micHint(id,"");ta.focus()}catch(e){micHint(id,"Could not start voice input.")}
+  r.onend=()=>{clearTimeout(r._t);if(rec===r)rec=null;micUI(id,false);const t=document.getElementById(id);if(t)t.dispatchEvent(new Event("input",{bubbles:true}))};
+  try{r.start();rec=r;r._t=setTimeout(stopMic,120000);micUI(id,true);micHint(id,"");ta.focus()}catch(e){micHint(id,"Could not start voice input.")}
 };
 
 /* ---------- boot ---------- */

@@ -8,6 +8,7 @@ export const MOVE_OF = {
   threshold: { move: "Notice", ch: 3 },  // The Threshold of Believability
   neutral: { move: "Pause", ch: 4 },     // Hold the Verdict
   rank: { move: "Follow", ch: 10 },      // The Honest Ask
+  pullcheck: { move: "Follow", ch: 10 }, // Appendix C, Chapter 10
   picture: { move: "Release", ch: 12 },  // Pump and Release
 };
 export const moveTag = (id) => { const m = MOVE_OF[id]; return m ? `${m.move} · Ch ${m.ch}` : ""; };
