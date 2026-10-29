@@ -746,8 +746,8 @@ function rLab(){
   const el=$("#v-lab");
   if(!lab.mode){
     el.innerHTML=`<div class="section-h" style="margin-top:8px"><h2>How much time do you have?</h2></div>
-    <div class="mode"><button data-act="talk"><span class="mono">About 5 minutes, with your coach</span><h3>Talk it through</h3><p class="muted">Say what is going on in your own words. The coach asks the questions and turns it into an entry.</p></button><button data-act="start" data-mode="quick"><span class="mono">About 2 minutes</span><h3>Quick catch</h3><p class="muted">Something just flared. Catch the belief, see it, choose a looser one, take one small step. Fill in the rest later.</p></button>
-    <button data-act="start" data-mode="full"><span class="mono">10 to 15 minutes</span><h3>Full lab</h3><p class="muted">All ten steps, unhurried. Best once a week, on whichever belief cost you the most.</p></button></div>
+    <div class="mode"><button data-act="talk"><span class="mono">About 5 minutes, with your coach</span><h3 aria-level="2">Talk it through</h3><p class="muted">Say what is going on in your own words. The coach asks the questions and turns it into an entry.</p></button><button data-act="start" data-mode="quick"><span class="mono">About 2 minutes</span><h3 aria-level="2">Quick catch</h3><p class="muted">Something just flared. Catch the belief, see it, choose a looser one, take one small step. Fill in the rest later.</p></button>
+    <button data-act="start" data-mode="full"><span class="mono">10 to 15 minutes</span><h3 aria-level="2">Full lab</h3><p class="muted">All ten steps, unhurried. Best once a week, on whichever belief cost you the most.</p></button></div>
     <p class="hint" style="margin-top:18px">Not sure what to work on? <button class="btn small ghost" data-go="library">Browse 130 common beliefs</button></p>`;
     return;
   }
@@ -1060,7 +1060,7 @@ function rDue(){
   const el=$("#due");if(!el)return;
   const D=dueItems();
   if(!D.length){el.innerHTML="";return}
-  el.innerHTML=`<section class="card"><h3>Check back on your steps</h3><p class="hint" style="margin-top:4px">What happened is feedback, not a verdict.</p>${D.map(dueHTML).join("")}</section>`;
+  el.innerHTML=`<section class="card"><h3 aria-level="2">Check back on your steps</h3><p class="hint" style="margin-top:4px">What happened is feedback, not a verdict.</p>${D.map(dueHTML).join("")}</section>`;
 }
 function dueHTML({k,rec}){
   const id=rec._id,ch=dueChoice[id],act=rec.act||rec.action||"",why=k==="c"?rec.pull:rec.preferred_belief;
@@ -1143,7 +1143,7 @@ function rTalk(){
     <div class="row" style="margin-top:10px"><button class="btn" data-act="talksend">Start</button></div>
     <p class="lbl" style="margin-top:20px">Or start with</p><div class="starters">${STARTERS.map((s,i)=>`<button class="starter" data-act="starter" data-i="${i}">${esc(s)}</button>`).join("")}</div></section>
     <div class="alt"><button class="linkbtn" data-go="tree">Sort your beliefs</button><span aria-hidden="true">·</span><button class="linkbtn" data-go="library">Browse common beliefs</button><span aria-hidden="true">·</span><button class="linkbtn" data-act="start" data-mode="quick">Write it out yourself</button></div>
-    ${recent.length?`<section class="card"><h3>Recent talks</h3>${recent.map(s=>`<button class="starter" data-act="talkopen" data-id="${s._id}" style="margin-top:8px"><span class="lbl">${fmt(s.created_at)}${s.saved?" · saved":""}</span><br>${esc(cut((s.capture&&s.capture.belief)||((s.msgs||[]).find(m=>m.r==="you")||{}).t||"",110))}</button>`).join("")}</section>`:""}`;
+    ${recent.length?`<section class="card"><h3 aria-level="2">Recent talks</h3>${recent.map(s=>`<button class="starter" data-act="talkopen" data-id="${s._id}" style="margin-top:8px"><span class="lbl">${fmt(s.created_at)}${s.saved?" · saved":""}</span><br>${esc(cut((s.capture&&s.capture.belief)||((s.msgs||[]).find(m=>m.r==="you")||{}).t||"",110))}</button>`).join("")}</section>`:""}`;
     bindEnter("talk-in",ACT.talksend);
     return;
   }
@@ -1190,9 +1190,9 @@ function applyTalk(r){
 function saveTalk(){put({_id:talk.id,kind:"session",created_at:talk.created_at,updated_at:Date.now(),stage:talk.stage,done:talk.done,saved:!!talk.saved,capture:talk.capture,msgs:talk.msgs})}
 function talkSummary(){
   const c=talk.capture;
-  if(talk.saved)return `<h3>Saved</h3><p class="hint" style="margin-top:4px">${talk.addedStep?"Your step is on today's list. I'll check back on it.":"It's in your journey."}</p><div class="row" style="margin-top:12px"><button class="btn" data-go="today">Back to Today</button><button class="btn ghost" data-act="talknew">New talk</button></div>`;
+  if(talk.saved)return `<h3 aria-level="2">Saved</h3><p class="hint" style="margin-top:4px">${talk.addedStep?"Your step is on today's list. I'll check back on it.":"It's in your journey."}</p><div class="row" style="margin-top:12px"><button class="btn" data-go="today">Back to Today</button><button class="btn ghost" data-act="talknew">New talk</button></div>`;
   const f=(id,label,v,ph)=>`<label class="f" for="${id}">${label}</label><input type="text" id="${id}" value="${esc(v||"")}" placeholder="${ph}">`;
-  return `<h3>What came out of this</h3><p class="hint" style="margin-top:4px">Check it. Change anything that isn't quite right; it's yours.</p>
+  return `<h3 aria-level="2">What came out of this</h3><p class="hint" style="margin-top:4px">Check it. Change anything that isn't quite right; it's yours.</p>
    ${f("ts-belief","The belief",c.belief,"The belief underneath")}
    ${c.self_claim?`<p class="hint" style="margin-top:6px">${esc(c.self_claim)}</p>`:""}
    ${f("ts-pref","What you prefer to believe",c.preferred,"A belief you can actually believe today")}
@@ -1315,13 +1315,13 @@ ACT.cfcommit=async()=>{
 };
 function openStepsHTML(){
   const P=checkins().filter(c=>c.status==="planned").slice(0,3);
-  return P.length?`<section class="card"><h3>Open steps</h3>${P.map(c=>`<div class="jrow"><p>${esc(c.act)}</p><p class="meta">${esc(c.when||"")} · from ${fmt(c.created_at)}</p></div>`).join("")}<p class="hint" style="margin-top:8px">Mark them done on Today.</p></section>`:"";
+  return P.length?`<section class="card"><h3 aria-level="2">Open steps</h3>${P.map(c=>`<div class="jrow"><p>${esc(c.act)}</p><p class="meta">${esc(c.when||"")} · from ${fmt(c.created_at)}</p></div>`).join("")}<p class="hint" style="margin-top:8px">Mark them done on Today.</p></section>`:"";
 }
 
 /* ---------- EXAMINE A THOUGHT ---------- */
 let talkMode="talk",thRes=null,thPrefill="",thBusy=false;
 const PATTERNS={"all-or-nothing":["All or nothing","Seeing it as all good or all bad, with nothing in between."],"mind reading":["Mind reading","Assuming you know what others think."],"fortune telling":["Fortune telling","Treating a guess about the future as a fact."],"catastrophizing":["Catastrophizing","Jumping to the worst possible outcome."],"should statements":["Should rules","Rules about how you or others must be."],"labeling":["Labeling","Turning one moment into a label for who you are."],"overgeneralizing":["Overgeneralizing","One event becomes always or never."],"discounting the positive":["Discounting the good","What went well doesn't count."],"emotional reasoning":["Emotional reasoning","I feel it, so it must be true."],"personalizing":["Personalizing","Taking the blame for things that aren't only yours."]};
-function modeSwitch(){return `<div class="seg modes" role="tablist" aria-label="Choose how to work"><button role="tab" data-act="tmode" data-v="talk" aria-pressed="${talkMode==="talk"}">Talk it through</button><button role="tab" data-act="tmode" data-v="thought" aria-pressed="${talkMode==="thought"}">Examine a thought</button></div>`}
+function modeSwitch(){return `<div class="seg modes" role="group" aria-label="Choose how to work"><button data-act="tmode" data-v="talk" aria-pressed="${talkMode==="talk"}">Talk it through</button><button data-act="tmode" data-v="thought" aria-pressed="${talkMode==="thought"}">Examine a thought</button></div>`}
 ACT.tmode=a=>{talkMode=a.dataset.v;talk=null;rTalk()};
 function rThought(el){
   el.innerHTML=`${modeSwitch()}<div class="hello"><h1>Examine a thought</h1><p class="lede">Write the thought exactly as it sounds in your head. Your coach looks for the belief underneath it.</p></div>
@@ -1606,12 +1606,12 @@ function rPractice(){
    <p style="margin-top:8px"><span class="pill">${s.days} day${s.days===1?"":"s"} in a row</span>${s.grace?` <span class="hint">· ${s.grace} grace day${s.grace===1?"":"s"} used</span>`:""}</p></div></section>
   <p class="hint principle">Momentum grows with honest practice, not with results. A “not yet” you report counts as much as a “done”. Missing a day now and then doesn't break your streak.</p>
   <p class="hint">The book's six moves. ${FLOWS}. ${STICKS}. A tag on an exercise shows the move it trains.</p>
-  <section class="card treecta"><div class="row" style="justify-content:space-between"><div><h3>The belief tree</h3><p class="hint" style="margin-top:4px">Many different thoughts grow from a few roots. Sort 20 statements in about two minutes and see yours.</p></div><button class="btn" data-go="tree">Open</button></div></section>
+  <section class="card treecta"><div class="row" style="justify-content:space-between"><div><h3 aria-level="2">The belief tree</h3><p class="hint" style="margin-top:4px">Many different thoughts grow from a few roots. Sort 20 statements in about two minutes and see yours.</p></div><button class="btn" data-go="tree">Open</button></div></section>
   <section class="card daily"><div class="row" style="justify-content:space-between"><span class="lbl">Today's practice</span><span class="pill">${done?"Done":`+${E.pts+DAILY_BONUS}`}</span></div><h3 style="margin-top:6px">${esc(E.title)}</h3><p class="hint" style="margin-top:4px">${esc(E.why)}</p>
    ${done?"":`<div class="row" style="margin-top:10px"><button class="btn" data-act="exstart" data-id="${E.id}">Start · ${E.min} min</button></div>`}</section>
-  <section class="card"><div class="row" style="justify-content:space-between"><h3>This week</h3><span class="lbl">${Math.min(wk,3)} of 3</span></div><p class="hint" style="margin-top:4px">Try three different exercises.</p><div class="m-bar wide"><i style="width:${Math.min(100,Math.round(wk/3*100))}%"></i></div></section>
-  ${Object.entries(CATS).map(([c,[name,sub]])=>`<section class="card"><h3>${name}</h3><p class="hint" style="margin-top:2px">${sub}</p><div class="exlist">${EX.filter(e=>e.cat===c).map(e=>`<button class="exrow" data-act="exstart" data-id="${e.id}"><span class="ex-t">${esc(e.title)}${counts[e.id]?` <span class="ex-done">✓${counts[e.id]>1?" "+counts[e.id]:""}</span>`:""}</span><span class="ex-m">${moveTag(e.id)?`<span class="mvtag">${moveTag(e.id)}</span> · `:""}${e.min} min · +${e.pts}</span></button>`).join("")}</div></section>`).join("")}
-  <section class="card"><h3>Milestones</h3><div class="badges">${MILESTONES.map(m=>`<div class="badge ${earned.has(m[0])?"on":""}" title="${esc(m[2])}"><b>${esc(m[1])}</b><span>${esc(m[2])}</span></div>`).join("")}</div></section>`;
+  <section class="card"><div class="row" style="justify-content:space-between"><h3 aria-level="2">This week</h3><span class="lbl">${Math.min(wk,3)} of 3</span></div><p class="hint" style="margin-top:4px">Try three different exercises.</p><div class="m-bar wide"><i style="width:${Math.min(100,Math.round(wk/3*100))}%"></i></div></section>
+  ${Object.entries(CATS).map(([c,[name,sub]])=>`<section class="card"><h3 aria-level="2">${name}</h3><p class="hint" style="margin-top:2px">${sub}</p><div class="exlist">${EX.filter(e=>e.cat===c).map(e=>`<button class="exrow" data-act="exstart" data-id="${e.id}"><span class="ex-t">${esc(e.title)}${counts[e.id]?` <span class="ex-done">✓${counts[e.id]>1?" "+counts[e.id]:""}</span>`:""}</span><span class="ex-m">${moveTag(e.id)?`<span class="mvtag">${moveTag(e.id)}</span> · `:""}${e.min} min · +${e.pts}</span></button>`).join("")}</div></section>`).join("")}
+  <section class="card"><h3 aria-level="2">Milestones</h3><div class="badges">${MILESTONES.map(m=>`<div class="badge ${earned.has(m[0])?"on":""}" title="${esc(m[2])}"><b>${esc(m[1])}</b><span>${esc(m[2])}</span></div>`).join("")}</div></section>`;
 }
 function rRunner(el){
   const E=EX.find(e=>e.id===pr.ex),n=E.steps.length;
@@ -1709,7 +1709,7 @@ ACT.prrefl=async()=>{
 };
 function practiceLogHTML(){
   const P=practices().slice(0,10);
-  return P.length?`<section class="card"><h3>Exercises you did</h3>${P.map(x=>`<div class="jrow"><p>${esc(x.title)}</p><p class="meta">${fmt(x.created_at)}${x.answers&&x.answers.belief?` · belief: ${esc(cut(x.answers.belief,70))}`:""}${x.answers&&x.answers.pref?` · prefers: ${esc(cut(x.answers.pref,70))}`:""} · <button class="linkbtn small" data-act="del" data-id="${x._id}">Delete</button></p></div>`).join("")}</section>`:"";
+  return P.length?`<section class="card"><h3 aria-level="2">Exercises you did</h3>${P.map(x=>`<div class="jrow"><p>${esc(x.title)}</p><p class="meta">${fmt(x.created_at)}${x.answers&&x.answers.belief?` · belief: ${esc(cut(x.answers.belief,70))}`:""}${x.answers&&x.answers.pref?` · prefers: ${esc(cut(x.answers.pref,70))}`:""} · <button class="linkbtn small" data-act="del" data-id="${x._id}">Delete</button></p></div>`).join("")}</section>`:"";
 }
 
 /* ---------- PULSE: state of mind through the day ---------- */
@@ -1959,14 +1959,14 @@ function dashHTML(){
   if(dashView==="year")body=`<div class="chart heatwrap">${heatmap()}</div><div class="legend"><span>Heavy</span>${[28,50,75,100].map(p=>`<i style="background:${mixTeal(p)}"></i>`).join("")}<span>Open</span></div>`;
   const last30=lastNDays(30).map(d=>pulsesOn(dstr(d)));
   const pats=patternsList(),SI=store.items.filter(x=>x.kind==="stateinsight").sort((a,b)=>b.created_at-a.created_at)[0];
-  return `<section class="card dash"><div class="row" style="justify-content:space-between"><h3>Your state</h3><button class="btn small" data-act="pulse">Pulse now</button></div>
+  return `<section class="card dash"><div class="row" style="justify-content:space-between"><h3 aria-level="2">Your state</h3><button class="btn small" data-act="pulse">Pulse now</button></div>
    <div class="tiles">${tiles.map(([l,v])=>`<div class="tile"><span class="lbl">${l}</span><b>${v==null?"–":v}</b></div>`).join("")}</div>
-   <div class="seg modes" role="tablist">${[["day","Day"],["week","Week"],["month","Month"],["year","Year"]].map(([k,l])=>`<button role="tab" data-act="dview" data-v="${k}" aria-pressed="${dashView===k}">${l}</button>`).join("")}</div>
+   <div class="seg modes" role="group">${[["day","Day"],["week","Week"],["month","Month"],["year","Year"]].map(([k,l])=>`<button data-act="dview" data-v="${k}" aria-pressed="${dashView===k}">${l}</button>`).join("")}</div>
    <div class="dash-body">${body}</div>
    <p class="hint" style="margin-top:8px"><span class="etag">Model</span>Score = feeling, energy, a clear head and freedom, out of 100. A personal index, not a medical measure.</p></section>
-  ${P.length?`<section class="card"><h3>The four dimensions, last 30 days</h3><div class="smalls">${DIMS.map(([k,l])=>{const vals=last30.map(a=>a.length?avg(a.map(p=>+p[k])):null);const lv=vals.filter(v=>v!=null).slice(-1)[0];return `<div class="sm"><div class="row" style="justify-content:space-between"><span class="lbl">${l}${k==="head"?" (fullness)":""}</span><b>${lv==null?"–":lv.toFixed(1)}</b></div>${spark(vals)}</div>`}).join("")}</div></section>`:""}
-  ${pats.length?`<section class="card"><h3>Patterns in your state</h3>${pats.map(t=>`<p style="margin-top:8px">${esc(t)}</p>`).join("")}<p class="hint" style="margin-top:8px">Counted from your own pulses; they need a few entries before they speak.</p></section>`:""}
-  ${P.length>=5?`<section class="card"><h3>What your states show</h3><div id="si">${SI?siHTML(SI):`<p class="hint">Your coach can read your states together with your beliefs and steps.</p>`}</div><div class="row" style="margin-top:10px"><button class="btn small ghost" data-act="stateread">${SI?"Read again":"Read my states"}</button></div></section>`:""}
+  ${P.length?`<section class="card"><h3 aria-level="2">The four dimensions, last 30 days</h3><div class="smalls">${DIMS.map(([k,l])=>{const vals=last30.map(a=>a.length?avg(a.map(p=>+p[k])):null);const lv=vals.filter(v=>v!=null).slice(-1)[0];return `<div class="sm"><div class="row" style="justify-content:space-between"><span class="lbl">${l}${k==="head"?" (fullness)":""}</span><b>${lv==null?"–":lv.toFixed(1)}</b></div>${spark(vals)}</div>`}).join("")}</div></section>`:""}
+  ${pats.length?`<section class="card"><h3 aria-level="2">Patterns in your state</h3>${pats.map(t=>`<p style="margin-top:8px">${esc(t)}</p>`).join("")}<p class="hint" style="margin-top:8px">Counted from your own pulses; they need a few entries before they speak.</p></section>`:""}
+  ${P.length>=5?`<section class="card"><h3 aria-level="2">What your states show</h3><div id="si">${SI?siHTML(SI):`<p class="hint">Your coach can read your states together with your beliefs and steps.</p>`}</div><div class="row" style="margin-top:10px"><button class="btn small ghost" data-act="stateread">${SI?"Read again":"Read my states"}</button></div></section>`:""}
   ${P.length?`<details class="card tablev"><summary>Show as a table</summary><table><thead><tr><th>Day</th><th>Score</th><th>Pulses</th></tr></thead><tbody>${lastNDays(14).reverse().map(d=>{const s=dayScore(dstr(d));return `<tr><td>${d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})}</td><td>${s.score==null?"–":s.score+(s.est?"*":"")}</td><td>${s.n}</td></tr>`}).join("")}</tbody></table><p class="hint">* from the morning check-in only</p></details>`:""}`;
 }
 function siHTML(SI){const d=SI.data;return `<p class="pullh" style="font-size:1.3rem">${esc(d.headline)}</p>${(d.patterns||[]).map(t=>`<p style="margin-top:6px">${esc(t)}</p>`).join("")}${d.try?`<p style="margin-top:8px"><b class="lbl">Try</b><br>${esc(d.try)}</p>`:""}<p class="hint" style="margin-top:6px">${fmt(SI.created_at)} · <span class="etag">Model</span>a view to test</p>`}
@@ -2034,12 +2034,12 @@ function testHTML(){
   const head=`<section class="card testhead"><div class="row" style="justify-content:space-between"><p class="lbl">Test it${tst.step<5?` · step ${tst.step+1} of 5`:""}</p><button class="linkbtn small" data-act="tsquit">Back to the tree</button></div><p class="sort-text small">“${esc(tst.text)}”</p>${tst.type!=="core"?`<p class="hint">This one reads like ${TYPE_LBL[tst.type]}, so the test is ${exp?"a small real-world experiment":"collecting evidence for a looser version"}.</p>`:`<p class="hint">A core belief. The test is collecting evidence for a looser version.</p>`}</section>`;
   const nav=(last)=>`<div class="row nav-row">${tst.step>0?`<button class="btn ghost" data-act="tsback">Back</button>`:""}<button class="btn" data-act="${last?"tssave":"tsnext"}">${last?"Save":"Next"}</button></div>`;
   let s="";
-  if(tst.step===0)s=`<section class="card"><h3>How true does it feel right now?</h3><p class="hint">Rate how true it feels, not how much it bothers you.</p>${tsRange("before",A.before,"Not true","Completely true")}${nav()}</section>`;
-  if(tst.step===1)s=`<section class="card"><h3>Look at the evidence</h3><label class="f" for="ts-for">What seems to support it?</label><textarea id="ts-for" data-ts="for" placeholder="Things that happened, things people said">${v("for")}</textarea><label class="f" for="ts-against">What doesn't fit it?</label><textarea id="ts-against" data-ts="against" placeholder="Times it wasn't true, people who'd disagree">${v("against")}</textarea><p class="hint" style="margin-top:8px">Look at the first list again. Is there another way to read those points?</p>${nav()}</section>`;
-  if(tst.step===2)s=`<section class="card"><h3>The friend test</h3><label class="f" for="ts-friend">If a good friend said this about themselves, what would you tell them?</label><textarea id="ts-friend" data-ts="friend">${v("friend")}</textarea><p class="lbl" style="margin-top:12px">Does that apply to you too?</p>${tsChips("applies",["Yes","Partly","Not yet"])}${nav()}</section>`;
-  if(tst.step===3)s=exp?`<section class="card"><h3>Test the rule</h3><p class="hint">Rules loosen when you act against them a little and see what actually happens.</p><label class="f" for="ts-pred">What do you predict will happen if you act against it once?</label><textarea id="ts-pred" data-ts="pred" placeholder="If I leave on time on Thursday, my manager will be annoyed.">${v("pred")}</textarea><p class="lbl" style="margin-top:10px">How sure are you of that prediction?</p>${tsRange("conf",A.conf==null?70:A.conf,"Not sure","Certain")}<label class="f" for="ts-act">One small, safe action to test it</label><input type="text" id="ts-act" data-ts="act" value="${v("act")}" placeholder="Leave at 17:30 on Thursday"><p class="lbl" style="margin-top:10px">When?</p>${tsChips("when",["Today","Tomorrow","This week"])}<p class="hint" style="margin-top:8px">It goes on your Compass, so you'll be asked how it went.</p>${nav()}</section>`
-    :`<section class="card"><h3>Collect proof for a looser version</h3><p style="margin-top:6px"><b class="lbl">The looser version</b><br>${esc(tst.pref)}</p><label class="f" for="ts-proof">One real thing from the last few days that fits it, however small</label><textarea id="ts-proof" data-ts="proof" placeholder="A colleague asked my opinion. I finished the draft even though it wasn't perfect.">${v("proof")}</textarea><p class="hint" style="margin-top:8px">A belief rarely changes in one go. One line of proof a day for a week does more than one big insight.</p>${nav()}</section>`;
-  if(tst.step===4)s=`<section class="card"><h3>How true does it feel now?</h3><p class="hint">Before you started: ${A.before}%. Any number is fine. This is a measurement, not a test you can fail.</p>${tsRange("after",A.after==null?A.before:A.after,"Not true","Completely true")}${nav(true)}</section>`;
+  if(tst.step===0)s=`<section class="card"><h3 aria-level="2">How true does it feel right now?</h3><p class="hint">Rate how true it feels, not how much it bothers you.</p>${tsRange("before",A.before,"Not true","Completely true")}${nav()}</section>`;
+  if(tst.step===1)s=`<section class="card"><h3 aria-level="2">Look at the evidence</h3><label class="f" for="ts-for">What seems to support it?</label><textarea id="ts-for" data-ts="for" placeholder="Things that happened, things people said">${v("for")}</textarea><label class="f" for="ts-against">What doesn't fit it?</label><textarea id="ts-against" data-ts="against" placeholder="Times it wasn't true, people who'd disagree">${v("against")}</textarea><p class="hint" style="margin-top:8px">Look at the first list again. Is there another way to read those points?</p>${nav()}</section>`;
+  if(tst.step===2)s=`<section class="card"><h3 aria-level="2">The friend test</h3><label class="f" for="ts-friend">If a good friend said this about themselves, what would you tell them?</label><textarea id="ts-friend" data-ts="friend">${v("friend")}</textarea><p class="lbl" style="margin-top:12px">Does that apply to you too?</p>${tsChips("applies",["Yes","Partly","Not yet"])}${nav()}</section>`;
+  if(tst.step===3)s=exp?`<section class="card"><h3 aria-level="2">Test the rule</h3><p class="hint">Rules loosen when you act against them a little and see what actually happens.</p><label class="f" for="ts-pred">What do you predict will happen if you act against it once?</label><textarea id="ts-pred" data-ts="pred" placeholder="If I leave on time on Thursday, my manager will be annoyed.">${v("pred")}</textarea><p class="lbl" style="margin-top:10px">How sure are you of that prediction?</p>${tsRange("conf",A.conf==null?70:A.conf,"Not sure","Certain")}<label class="f" for="ts-act">One small, safe action to test it</label><input type="text" id="ts-act" data-ts="act" value="${v("act")}" placeholder="Leave at 17:30 on Thursday"><p class="lbl" style="margin-top:10px">When?</p>${tsChips("when",["Today","Tomorrow","This week"])}<p class="hint" style="margin-top:8px">It goes on your Compass, so you'll be asked how it went.</p>${nav()}</section>`
+    :`<section class="card"><h3 aria-level="2">Collect proof for a looser version</h3><p style="margin-top:6px"><b class="lbl">The looser version</b><br>${esc(tst.pref)}</p><label class="f" for="ts-proof">One real thing from the last few days that fits it, however small</label><textarea id="ts-proof" data-ts="proof" placeholder="A colleague asked my opinion. I finished the draft even though it wasn't perfect.">${v("proof")}</textarea><p class="hint" style="margin-top:8px">A belief rarely changes in one go. One line of proof a day for a week does more than one big insight.</p>${nav()}</section>`;
+  if(tst.step===4)s=`<section class="card"><h3 aria-level="2">How true does it feel now?</h3><p class="hint">Before you started: ${A.before}%. Any number is fine. This is a measurement, not a test you can fail.</p>${tsRange("after",A.after==null?A.before:A.after,"Not true","Completely true")}${nav(true)}</section>`;
   if(tst.step===5){const d=(A.after==null?A.before:A.after)-A.before;
     s=`<section class="card strongest"><p class="lbl">Saved</p><div class="pscore"><b>${A.before}% → ${A.after==null?A.before:A.after}%</b></div><p style="margin-top:6px">${d<0?"It loosened a little. That's how beliefs change: in small, repeated steps.":"No change yet, and that's normal. A belief usually loosens after a few rounds of evidence and action, not after one look."}</p>${exp&&A.act?`<p class="hint" style="margin-top:6px">Your test is on the Compass: “${esc(A.act)}”.</p>`:""}<div class="row nav-row"><button class="btn" data-act="tsquit">Back to my tree</button><button class="btn ghost" data-act="${tst.kind==="core"?"coretalk":"leaftalk"}" data-id="${tst.id}">Talk it through</button></div></section>`}
   return head+s;
@@ -2051,7 +2051,7 @@ ACT.sortagain=()=>{sortRound=newRound();treeMode="sort";rTree()};
 ACT.markv=async a=>{const id=a.dataset.id,v=+a.dataset.v,cur=bmap()[id];await setMark(id,cur===v?null:v);const row=a.closest(".tleaf");if(row){const m=bmap()[id];row.querySelectorAll("[data-act='markv']").forEach(btn=>btn.setAttribute("aria-pressed",String(m===+btn.dataset.v)))}};
 ACT.coretalk=a=>{const s=coreScores().find(x=>x.c.id===a.dataset.id);if(!s)return;const ex=s.yes.slice(0,3).map(b=>`"${b.belief}"`).join(", ");startTalk(`My belief sort points to this core belief: "${s.c.belief}".${ex?` It shows up as ${ex}.`:""} Can we look at it?`)};
 ACT.leaftalk=a=>{const b=B.find(x=>x.id===a.dataset.id);if(b)startTalk(`I recognise this belief: "${b.belief}". It may grow from "${coreOf(b.core).belief}". Can we look at it?`)};
-function tabsHTML(){return `<div class="seg modes" role="tablist">${[["sort","Sort"],["explore","Explore"],["mine","My tree"]].map(([k,l])=>`<button role="tab" data-act="tmodeset" data-v="${k}" aria-pressed="${treeMode===k}">${l}</button>`).join("")}</div>`}
+function tabsHTML(){return `<div class="seg modes" role="group">${[["sort","Sort"],["explore","Explore"],["mine","My tree"]].map(([k,l])=>`<button data-act="tmodeset" data-v="${k}" aria-pressed="${treeMode===k}">${l}</button>`).join("")}</div>`}
 function rTree(){
   const el=$("#v-tree");
   if(treeMode==="sort"&&!sortRound)sortRound=newRound();
@@ -2059,7 +2059,7 @@ function rTree(){
   let body="";
   if(treeMode==="sort"){
     const R=sortRound,done=!R.ids.length||R.i>=R.ids.length;
-    if(!R.ids.length)body=`<section class="card"><h3>You've sorted every statement.</h3><p class="hint" style="margin-top:6px">See what grew from it in My tree, or change any answer in Explore.</p><div class="row" style="margin-top:10px"><button class="btn" data-act="tmodeset" data-v="mine">My tree</button></div></section>`;
+    if(!R.ids.length)body=`<section class="card"><h3 aria-level="2">You've sorted every statement.</h3><p class="hint" style="margin-top:6px">See what grew from it in My tree, or change any answer in Explore.</p><div class="row" style="margin-top:10px"><button class="btn" data-act="tmodeset" data-v="mine">My tree</button></div></section>`;
     else if(done)body=resultHTML(true);
     else{const b=B.find(x=>x.id===R.ids[R.i]);
       body=`<div class="m-bar wide"><i style="width:${Math.round(R.i/R.ids.length*100)}%"></i></div>
@@ -2082,15 +2082,15 @@ function rTree(){
 function resultHTML(afterRound){
   const rs=rootScores(),cs=coreScores().filter(s=>s.weight>0).sort((x,y)=>y.weight-x.weight||y.score-x.score),top=cs[0];
   const maxW=Math.max(1,...rs.map(r=>r.weight));
-  return `${afterRound?`<section class="card"><h3>Round done</h3><p class="hint" style="margin-top:4px">Here is what your answers grow from so far. More rounds make it sharper.</p></section>`:""}
-  <section class="card"><h3>Your roots</h3>${rs.map(r=>`<div class="dbar"><div class="row" style="justify-content:space-between"><span>${ROOTS[r.r]}</span><span class="mono">${r.weight}</span></div><i style="width:${Math.round(r.weight/maxW*100)}%"></i></div>`).join("")}</section>
+  return `${afterRound?`<section class="card"><h3 aria-level="2">Round done</h3><p class="hint" style="margin-top:4px">Here is what your answers grow from so far. More rounds make it sharper.</p></section>`:""}
+  <section class="card"><h3 aria-level="2">Your roots</h3>${rs.map(r=>`<div class="dbar"><div class="row" style="justify-content:space-between"><span>${ROOTS[r.r]}</span><span class="mono">${r.weight}</span></div><i style="width:${Math.round(r.weight/maxW*100)}%"></i></div>`).join("")}</section>
   ${top?`<section class="card strongest"><p class="lbl">Strongest core belief so far</p><h2 class="pullh" style="margin-top:4px">“${esc(top.c.belief)}”</h2>
    ${top.yes.length<2?`<p class="hint" style="margin-top:8px">Sort another round: when more statements from different parts of life land here, you'll see how they share this one root.</p>`:""}${top.yes.length>1?`<p style="margin-top:10px"><b>Different thoughts, one root.</b> These all grow from it:</p><ul class="oneroot">${top.yes.slice(0,5).map(b=>`<li><span class="lbl">${esc(AREAS[b.area])}</span> ${esc(b.belief)}</li>`).join("")}</ul>`:""}
    <p class="hint" style="margin-top:8px">${protectText(top.c)}</p>${rulesHTML(top.c)}
    <p style="margin-top:8px"><b class="lbl">A belief you could try instead</b><br>${esc(top.c.preferred)}</p>
    <div class="row nav-row"><button class="btn" data-act="testcore" data-id="${top.c.id}">Test this belief</button><button class="btn ghost" data-act="coretalk" data-id="${top.c.id}">Talk it through</button><button class="btn ghost" data-act="sortagain">Sort another round</button></div></section>`:`<section class="card"><p>Nothing marked as you yet. That's fine. Sort another round or explore the tree.</p><div class="row" style="margin-top:10px"><button class="btn" data-act="sortagain">Sort another round</button></div></section>`}
   ${afterRound&&cs.length?`<div class="row" style="justify-content:center"><button class="btn ghost" data-act="tmodeset" data-v="mine">See your whole tree</button></div>`:""}
-  ${!afterRound&&cs.length?`<section class="card"><h3>Your tree</h3><div class="mytree">${Object.keys(ROOTS).map(r=>{const rc=cs.filter(s=>s.c.root===r);return rc.length?`<div class="mt-root"><p class="mt-rl">${ROOTS[r]}</p>${rc.map(s=>`<div class="mt-core"><div class="mt-head"><span>${esc(s.c.belief)}</span><span class="mono">${s.yes.length}</span></div><span class="m-bar"><i style="width:${Math.round(s.score*100)}%"></i></span>${s.yes.length?`<div class="mt-leaves">${s.yes.slice(0,4).map(b=>`<span class="chip">${esc(cut(b.belief,48))}</span>`).join("")}</div>`:""}<div class="row" style="gap:12px"><button class="linkbtn small" data-act="testcore" data-id="${s.c.id}">Test it</button><button class="linkbtn small" data-act="coretalk" data-id="${s.c.id}">Talk about this one</button></div></div>`).join("")}</div>`:""}).join("")}</div></section>`:""}`;
+  ${!afterRound&&cs.length?`<section class="card"><h3 aria-level="2">Your tree</h3><div class="mytree">${Object.keys(ROOTS).map(r=>{const rc=cs.filter(s=>s.c.root===r);return rc.length?`<div class="mt-root"><p class="mt-rl">${ROOTS[r]}</p>${rc.map(s=>`<div class="mt-core"><div class="mt-head"><span>${esc(s.c.belief)}</span><span class="mono">${s.yes.length}</span></div><span class="m-bar"><i style="width:${Math.round(s.score*100)}%"></i></span>${s.yes.length?`<div class="mt-leaves">${s.yes.slice(0,4).map(b=>`<span class="chip">${esc(cut(b.belief,48))}</span>`).join("")}</div>`:""}<div class="row" style="gap:12px"><button class="linkbtn small" data-act="testcore" data-id="${s.c.id}">Test it</button><button class="linkbtn small" data-act="coretalk" data-id="${s.c.id}">Talk about this one</button></div></div>`).join("")}</div>`:""}).join("")}</div></section>`:""}`;
 }
 function exploreHTML(){return `<input type="search" id="tq" placeholder="Search, for example rest, money, enough" value="${esc(treeQ)}" aria-label="Search the belief tree"><div id="tlist">${exploreList()}</div>`}
 function exploreList(){
@@ -2111,18 +2111,18 @@ function bodySummaryHTML(){
   const R={};P.forEach(p=>p.body.regions.forEach(r=>{(R[r]=R[r]||[]).push(p)}));
   const rows=Object.entries(R).sort((a,b)=>b[1].length-a[1].length).slice(0,5);const max=rows[0][1].length;
   const tagFor=list=>{const T={};list.forEach(p=>(p.tags||[]).forEach(t=>T[t]=(T[t]||0)+1));const t=Object.entries(T).sort((a,b)=>b[1]-a[1])[0];return t&&t[1]>=2?t[0]:""};
-  return `<section class="card"><h3>What your body told you</h3><p class="hint">Last 30 days, from your pulses.</p>${rows.map(([r,list])=>{const t=tagFor(list);return `<div class="dbar"><div class="row" style="justify-content:space-between"><span>${esc(r)}</span><span class="mono">${list.length}× · avg ${avg(list.map(p=>+p.body.level||0)).toFixed(1)}/10</span></div><i style="width:${Math.round(list.length/max*100)}%"></i>${t?`<p class="hint">Often while: ${esc(t.toLowerCase())}</p>`:""}</div>`}).join("")}
+  return `<section class="card"><h3 aria-level="2">What your body told you</h3><p class="hint">Last 30 days, from your pulses.</p>${rows.map(([r,list])=>{const t=tagFor(list);return `<div class="dbar"><div class="row" style="justify-content:space-between"><span>${esc(r)}</span><span class="mono">${list.length}× · avg ${avg(list.map(p=>+p.body.level||0)).toFixed(1)}/10</span></div><i style="width:${Math.round(list.length/max*100)}%"></i>${t?`<p class="hint">Often while: ${esc(t.toLowerCase())}</p>`:""}</div>`}).join("")}
    <p class="hint" style="margin-top:8px">${esc(LISTEN_Q[0])}</p></section>`;
 }
 function treeSummaryHTML(){
   const T=investigations().slice(0,5);
-  const tests=T.length?`<section class="card"><h3>Beliefs you tested</h3>${T.map(t=>`<div class="jrow"><p>${esc(cut(t.belief,90))}</p><p class="meta">${fmt(t.created_at)} · ${t.before}% → ${t.after==null?t.before:t.after}%</p></div>`).join("")}</section>`:"";
+  const tests=T.length?`<section class="card"><h3 aria-level="2">Beliefs you tested</h3>${T.map(t=>`<div class="jrow"><p>${esc(cut(t.belief,90))}</p><p class="meta">${fmt(t.created_at)} · ${t.before}% → ${t.after==null?t.before:t.after}%</p></div>`).join("")}</section>`:"";
   return tests+treeSummaryCore();
 }
 function treeSummaryCore(){
   if(Object.keys(bmap()).length<8)return "";
   const top=coreScores().filter(s=>s.weight>0).sort((x,y)=>y.weight-x.weight).slice(0,3);
-  return top.length?`<section class="card"><div class="row" style="justify-content:space-between"><h3>Your belief tree</h3><button class="btn small ghost" data-act="opentree">Open</button></div>${top.map(s=>`<div class="jrow"><p>${esc(s.c.belief)}</p><p class="meta">${ROOTS[s.c.root]} · ${s.yes.length} recognised</p></div>`).join("")}</section>`:"";
+  return top.length?`<section class="card"><div class="row" style="justify-content:space-between"><h3 aria-level="2">Your belief tree</h3><button class="btn small ghost" data-act="opentree">Open</button></div>${top.map(s=>`<div class="jrow"><p>${esc(s.c.belief)}</p><p class="meta">${ROOTS[s.c.root]} · ${s.yes.length} recognised</p></div>`).join("")}</section>`:"";
 }
 ACT.opentree=()=>{treeMode="mine";go("tree")};
 
@@ -2140,12 +2140,12 @@ function rJourney(){
   ${empty?`<section class="card"><p>Your journey fills up as you check in, talk things through and take steps.</p><div class="row" style="margin-top:12px"><button class="btn" data-go="today">Go to Today</button></div></section>`:""}
   <div id="insight">${insightCard()}</div>
   ${rootsCard()}
-  ${MI?`<section class="card"><div class="row" style="justify-content:space-between"><h3>Mornings</h3><span class="lbl">${MI.streak} day streak</span></div>${moodSpark(MI.series)}
+  ${MI?`<section class="card"><div class="row" style="justify-content:space-between"><h3 aria-level="2">Mornings</h3><span class="lbl">${MI.streak} day streak</span></div>${moodSpark(MI.series)}
     <p class="hint" style="margin-top:6px">Average ${MI.avg7!=null?MI.avg7.toFixed(1):"–"} this week, ${MI.avg30!=null?MI.avg30.toFixed(1):"–"} this month.</p>
     ${MI.pattern?`<p style="margin-top:10px">On lower mornings this keeps showing up: <i>“${esc(MI.pattern)}”</i></p><div class="row" style="margin-top:8px"><button class="btn small ghost" data-act="talkpattern">Talk about it</button></div>`:""}</section>`:""}
-  ${E.length?`<section class="card"><h3>Beliefs you're loosening</h3>${E.slice(0,12).map(e=>`<div class="jrow"><p class="old">${esc(e.belief_raw||"(no belief written)")}</p>${e.preferred_belief?`<p class="new">${esc(e.preferred_belief)}</p>`:""}
+  ${E.length?`<section class="card"><h3 aria-level="2">Beliefs you're loosening</h3>${E.slice(0,12).map(e=>`<div class="jrow"><p class="old">${esc(e.belief_raw||"(no belief written)")}</p>${e.preferred_belief?`<p class="new">${esc(e.preferred_belief)}</p>`:""}
     <p class="meta">${fmt(e.created_at)} · ${({talk:"talk",thought:"thought check"})[e.mode]||"worksheet"}${e.believability_start!=null?` · feels true ${e.believability_start}${e.believability_followup!=null?" → "+e.believability_followup:""}/10`:""}${e.outcome&&e.outcome!=="(no note)"?` · ${esc(cut(e.outcome,90))}`:""} · <button class="linkbtn small" data-act="del" data-id="${e._id}">Delete</button></p></div>`).join("")}</section>`:""}
-  ${C.length?`<section class="card"><h3>Steps you took</h3>${C.slice(0,12).map(c=>`<div class="jrow"><p>${esc(c.act||c.pull||"")}</p><p class="meta"><span class="status ${c.status||""}">${STATUS[c.status]||"Noted"}</span> ${fmt(c.created_at)}${c.outcome?` · ${esc(cut(c.outcome,90))}`:""} · <button class="linkbtn small" data-act="del" data-id="${c._id}">Delete</button></p>${c.feedback?`<p class="meta"><i>${esc(c.feedback)}</i></p>`:""}</div>`).join("")}</section>`:""}`;
+  ${C.length?`<section class="card"><h3 aria-level="2">Steps you took</h3>${C.slice(0,12).map(c=>`<div class="jrow"><p>${esc(c.act||c.pull||"")}</p><p class="meta"><span class="status ${c.status||""}">${STATUS[c.status]||"Noted"}</span> ${fmt(c.created_at)}${c.outcome?` · ${esc(cut(c.outcome,90))}`:""} · <button class="linkbtn small" data-act="del" data-id="${c._id}">Delete</button></p>${c.feedback?`<p class="meta"><i>${esc(c.feedback)}</i></p>`:""}</div>`).join("")}</section>`:""}`;
   el.insertAdjacentHTML("beforeend",bodySummaryHTML()+treeSummaryHTML()+practiceLogHTML());
   bindTips(el);
 }
@@ -2164,15 +2164,15 @@ function rYou(){
   el.innerHTML=`<div class="hello"><h1>You</h1></div>
   <section class="card"><label class="f" for="you-name" style="margin-top:0">What your coach calls you</label><input type="text" id="you-name" value="${esc(nm)}" maxlength="40" placeholder="Your name">
    <div class="row" style="margin-top:10px"><button class="btn small" data-act="namesave">Save</button></div></section>
-  <section class="card"><h3>What your coach remembers</h3><p class="hint" style="margin-top:6px">A running summary the coach keeps, so its help gets more personal. Edit or clear it whenever you like.</p>
+  <section class="card"><h3 aria-level="2">What your coach remembers</h3><p class="hint" style="margin-top:6px">A running summary the coach keeps, so its help gets more personal. Edit or clear it whenever you like.</p>
    <textarea id="mem-text" style="min-height:130px" placeholder="Empty so far. It fills in as you use the app.">${esc(m&&m.text||"")}</textarea>
    <div class="row" style="margin-top:10px"><button class="btn small" data-act="memsave">Save notes</button><button class="btn small ghost" data-act="memclear">Clear notes</button></div></section>
-  <section class="card"><h3>Settings</h3>
+  <section class="card"><h3 aria-level="2">Settings</h3>
    <label class="row" style="gap:8px;cursor:pointer;margin-top:10px"><input type="checkbox" id="hist-tog" ${useHist()?"checked":""} style="accent-color:var(--teal);width:18px;height:18px" data-act="histtog"> Use my history to personalise coaching</label>
    <p style="margin-top:10px">Voice language <button class="miclang" data-act="miclang">${micLang().slice(0,2).toUpperCase()}</button></p>
    <div class="row" style="margin-top:12px"><button class="btn small ghost" data-act="export">Export all my data</button><button class="btn small ghost" data-act="import">Import data</button><button class="btn small ghost" data-act="intro">Show the intro again</button></div></section>
-  <section class="card"><h3>Help us improve</h3><p class="hint" style="margin-top:6px">Something broke, confused you, or you love it? Tell us in 15 seconds. Only what you type is sent, never your journal.</p><div class="row" style="margin-top:10px"><button class="btn small" data-act="feedback">Send feedback</button><button class="btn small ghost" data-act="whatsnew">What's new</button></div><p class="hint" id="about-line" style="margin-top:12px"></p></section>
-  <section class="card"><h3><span class="etag">Model</span>How this works</h3>
+  <section class="card"><h3 aria-level="2">Help us improve</h3><p class="hint" style="margin-top:6px">Something broke, confused you, or you love it? Tell us in 15 seconds. Only what you type is sent, never your journal.</p><div class="row" style="margin-top:10px"><button class="btn small" data-act="feedback">Send feedback</button><button class="btn small ghost" data-act="whatsnew">What's new</button></div><p class="hint" id="about-line" style="margin-top:12px"></p></section>
+  <section class="card"><h3 aria-level="2"><span class="etag">Model</span>How this works</h3>
    <p class="hint" style="margin-top:6px">The app follows the book's method: see a belief as a belief, follow what pulls you, take one real step with what you have, and let go of exactly how it turns out. Your coach aims for steps that work in the world as it is now. It can't know your whole life and can be wrong, so keep what fits.</p>
    <p class="hint">Everything you save stays in your own space. When you ask for coaching, a summary of your history and what you type is sent to Claude to write the reply. Voice input uses your browser's speech service, and only the text is kept.</p>
    <p class="hint">This is a thinking aid, not therapy or medical care.</p></section>`;
@@ -2239,14 +2239,14 @@ async function updateMemory(material){
 }
 function thinking(t){return `<p class="hint">${esc(t)}<span class="dots"><i></i><i></i><i></i></span></p>`}
 function briefStart(){
-  return `<div class="card"><h3>Today's brief</h3>
+  return `<div class="card"><h3 aria-level="2">Today's brief</h3>
     <label class="f" for="br-extra" style="margin-top:10px">What is on your mind today? (optional)</label>
     <textarea id="br-extra" placeholder="A worry, a pull, or nothing at all"></textarea>
     <div class="row" style="margin-top:12px"><button class="btn" data-act="brief">Get today's coaching</button></div></div>`;
 }
 function insightCard(){
   const I=lastInsight(),n=entries().length+moodCheckins().length+checkins().length;
-  if(!I)return `<div class="card" style="margin-bottom:14px"><h3>What your coach is seeing</h3><p class="muted" style="margin-top:6px">${n<3?"Save a few entries, check-ins or Compass steps and the coach can read your patterns over time.":"A reading of everything you have saved, including patterns a counter would miss."}</p>${n>=3?`<div class="row" style="margin-top:12px"><button class="btn" data-act="insight">Read my patterns</button></div>`:""}</div>`;
+  if(!I)return `<div class="card" style="margin-bottom:14px"><h3 aria-level="2">What your coach is seeing</h3><p class="muted" style="margin-top:6px">${n<3?"Save a few entries, check-ins or Compass steps and the coach can read your patterns over time.":"A reading of everything you have saved, including patterns a counter would miss."}</p>${n>=3?`<div class="row" style="margin-top:12px"><button class="btn" data-act="insight">Read my patterns</button></div>`:""}</div>`;
   const d=I.data;
   return `<div class="card" style="margin-bottom:14px"><p class="lbl">What your coach is seeing · ${fmt(I.created_at)}</p><h3 class="pullh" style="margin-block:6px 10px">${esc(d.headline)}</h3>
   ${d.patterns.map(p=>`<div class="rung"><b>${esc(ROOTS[p.root]||"Pattern")}</b><span>${esc(p.belief)} <span class="muted">${esc(p.evidence)}</span></span></div>`).join("")}
