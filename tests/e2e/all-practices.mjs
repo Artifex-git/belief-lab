@@ -11,7 +11,7 @@ const errs = []; page.on("pageerror", (e) => errs.push(e.message));
 await page.route("**/fonts.g*/**", (r) => r.abort());
 await page.route("**/api/**", (r) => r.fulfill({ status: 503, body: "{}" }));
 await page.goto("http://localhost:4183/"); await page.waitForSelector("#nav button", { state: "attached" });
-const ids = ["loopaudit", "pullcheck", "breaths", "relaxjudge", "reel", "echo", "own", "real", "three", "have", "allright", "qualifier", "sign"];
+const ids = ["loopaudit", "pullcheck", "breaths", "relaxjudge", "reel", "echo", "own", "real", "three", "have", "allright", "qualifier", "sign", "takeyours", "walkon", "obstacle", "ledger"];
 for (const id of ids) {
   await page.evaluate(() => document.querySelector('[data-go="practice"]').click()); await page.waitForTimeout(150);
   await page.evaluate((id) => { const x = document.createElement("button"); x.dataset.act = "exstart"; x.dataset.id = id; document.body.appendChild(x); x.click(); }, id); await page.waitForTimeout(150);

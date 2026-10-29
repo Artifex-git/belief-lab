@@ -3,6 +3,7 @@
 Lines under a version are shown to testers in the app under "What's new". Write them in plain language. Add `(#12)` when a line came from a feedback issue.
 
 ## Unreleased
+- Four more exercises: Take what's yours (Chapter 19), The walk-on (On Stage), The obstacle plan (The Hard Parts) and The long-game ledger (The Long Game).
 - Eleven more exercises from the book, in its own steps: The Three Breaths, Relax the Judgment, Trace the Reel, Don't wait for the echo, Own it don't blame it, Say what's real, The three questions, The already-have reframe, Let it be all right, Drop the qualifier, Don't sign it.
 - Voice on iPhone: keeps listening after each phrase instead of stopping, and says what to switch on (Dictation, microphone permission) when the phone blocks it.
 - New practices from the book: The Loop Audit (Appendix B) and Is this a pull? (Appendix C). Both are diagnostics, not tests.

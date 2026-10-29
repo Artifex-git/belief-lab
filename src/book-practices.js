@@ -148,4 +148,43 @@ export const BOOK_PRACTICES = [
       { t: "info", q: "Decline to sign it.", body: "Don't argue with it and don't flip it into praise. Recognize it as a verdict you are being asked to sign, a judgment against yourself presented as fact, and say one plain inner sentence: \u201cNoted, but I'm not signing that.\u201d Then do the thing anyway, unedited, or as close to unedited as you can manage this time." },
       { t: "text", k: "do", q: "What will you do or say anyway, as close to unedited as you can?", ph: "Share the suggestion in the channel." },
     ] },
+
+  // ---- Chapter 19, On Stage, The Hard Parts and The Long Game ----
+  { id: "takeyours", cat: "self", title: "Take what's yours", min: 4, pts: 10, tag: "Open", why: "Apply the book's four markers one last time, to the optional chapter itself. There is no wrong answer, and no answer required at all. From Chapter 19.",
+    steps: [
+      { t: "info", q: "Look back at the four markers from the first pages: Established, Plausible, Model, Open.", body: "Now apply them to Chapter 19. Of everything offered there, decide for yourself what you're willing to hold as a useful way of thinking, what you'd rather leave as a genuinely open question, and what you're setting down entirely. The first eighteen chapters work exactly the same either way." },
+      { t: "choice", k: "higher", q: "Higher Mind: the idea of a larger mind or consciousness you can draw on.", opts: ["Keep as a useful way of thinking", "Leave as an open question", "Set down"] },
+      { t: "choice", k: "valley", q: "The valley and the mountain.", opts: ["Keep as a useful way of thinking", "Leave as an open question", "Set down"] },
+      { t: "choice", k: "letgo", q: "The idea that letting go opens you to more than you could have pictured.", opts: ["Keep as a useful way of thinking", "Leave as an open question", "Set down"] },
+      { t: "text", k: "keep", q: "Optional: one or two sentences naming what you're keeping, if anything.", ph: "I'll keep the idea that quiet helps me notice my own pull." },
+    ] },
+  { id: "walkon", cat: "self", title: "The walk-on", min: 3, pts: 15, tag: "Model", why: "A sixty-second routine for any moment where you'll be exposed: speaking up, a hard conversation, sharing something you made. From the bonus chapter On Stage.",
+    steps: [
+      { t: "text", k: "moment", q: "Pick a moment this week where you'll be exposed. What is it?", ph: "Presenting the plan on Thursday." },
+      { t: "text", k: "belief", q: "Name the belief. What are you afraid they'll see?", hint: "One sentence. You're not fixing it now.", ph: "That I don't know what I'm doing.", help: true },
+      { t: "info", q: "Relabel the body.", body: "Feel the activation and rename it, the way Chapter 6 showed: this isn't fear, it's my system coming online. Same energy, truer name." },
+      { t: "info", q: "Turn the camera around.", body: "Catch the self-watching narrator and deliberately move your attention off yourself and onto what's in front of you: the faces, the words, the task. Presence is just attention pointed outward." },
+      { t: "info", q: "Drop the requirement.", body: "Let it not have to go perfectly. You're not here to be flawless. You're here to be present." },
+      { t: "info", q: "Flip the switch.", body: "Picture the version of you who handles this moment at their best. Notice how they stand and how they look at the room. Step into that, let the picture go, and keep the state." },
+      { t: "when", k: "when", q: "When is the moment?" },
+    ],
+    commit: (a) => ({ pull: "The walk-on", act: `Run the sixty seconds before: ${a.moment}`, when: a.when }) },
+  { id: "obstacle", cat: "pull", title: "The obstacle plan", min: 5, pts: 15, tag: "Plausible", tagNote: "if-then planning is among the better-tested findings in the science of behaviour change", why: "Five minutes, written down, whenever you're about to act on a pull that matters. From The Hard Parts.",
+    steps: [
+      { t: "text", k: "wish", q: "The wish: the next small step of the pull you're following, specific enough to do this week.", ph: "Send the draft to Anna by Friday." },
+      { t: "text", k: "outcome", q: "The outcome: the best result of that step. Picture it briefly, for a few seconds rather than a daydream.", ph: "She replies with two useful notes." },
+      { t: "text", k: "obstacle", q: "The obstacle: the main thing inside you most likely to stop you.", hint: "Not the boss or the weather. The feeling, the belief or the habit.", ph: "I'll tell myself I'm too tired." },
+      { t: "text", k: "plan", q: "The plan, in one sentence: if the obstacle shows up, then I will ...", hint: "Make the action one of the six moves. For example: if I hear \u201cbe realistic\u201d, then I'll notice it's a belief and do the first ten minutes anyway.", ph: "If I tell myself I'm too tired, then I'll open the file for ten minutes." },
+      { t: "when", k: "when", q: "When will you take the step?" },
+    ],
+    commit: (a) => ({ pull: a.wish, act: `${a.wish} (If ${a.obstacle ? a.obstacle.replace(/[.]+$/, "") : "the obstacle"} shows up: ${a.plan})`, when: a.when }) },
+  { id: "ledger", cat: "find", title: "The long-game ledger", min: 5, pts: 15, tag: "Model", why: "Once a week, five minutes: the one trigger that cost you the most. It isn't there to prove you're improving. It's there so you can see the shape of a long game you were too close to see. From The Long Game.",
+    steps: [
+      { t: "text", k: "trigger", q: "Which trigger cost you the most this week?", ph: "A short reply from my sister." },
+      { t: "choice", k: "caught", q: "When did you catch it?", opts: ["Afterward", "During", "As it arrived"] },
+      { t: "choice", k: "recover", q: "How long until you felt like yourself again?", opts: ["Minutes", "Hours", "Days"] },
+      { t: "choice", k: "said", q: "What did you say to yourself once it was over?", opts: ["A verdict on me", "Something closer to \u201cI'm meeting this from a new side\u201d", "Not sure"] },
+      { t: "text", k: "five", q: "If an old voice came back this week, what was five percent different from last time?", ph: "I noticed it sooner, and I didn't add the second story." },
+      { t: "info", q: "Once a month, reread the last four entries.", body: "Look for movement in one line only, and don't look for perfection. If nothing has moved, that's data too. The response isn't a verdict on yourself: change the dose (the morning practice, or calming the nervous system), or find the person who can help." },
+    ] },
 ];
