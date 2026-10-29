@@ -10,7 +10,7 @@
     "test": "node scripts/build-info.mjs && vitest run",
     "test:safety": "node scripts/build-info.mjs && vitest run tests/safety",
     "icons": "node scripts/make-icons.mjs",
-    "e2e": "node tests/e2e/smoke.mjs && node tests/e2e/anchor.mjs && node tests/e2e/artifact.mjs && node tests/e2e/morning.mjs && node tests/e2e/gate.mjs",
+    "e2e": "node tests/e2e/smoke.mjs && node tests/e2e/anchor.mjs && node tests/e2e/artifact.mjs && node tests/e2e/morning.mjs && node tests/e2e/gate.mjs && node tests/e2e/search.mjs",
     "build:artifact": "node scripts/build-info.mjs && vite build --mode artifact && node scripts/artifact-wrap.mjs"
   },
   "devDependencies": {

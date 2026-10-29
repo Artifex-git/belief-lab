@@ -3,6 +3,7 @@
 Lines under a version are shown to testers in the app under "What's new". Write them in plain language. Add `(#12)` when a line came from a feedback issue.
 
 ## Unreleased
+- New: search on the Journey screen finds words across your beliefs, steps, mornings, talks, practices and tests. It stays on your device.
 - The app now asks for an invite code the first time it opens on a device. Feedback and error reports need the code too.
 - New: a weekly check on Today, "Which belief cost you the most this week?", that opens the Lab on it. Skip any week without a word said about it.
 - Journey now notices when one root keeps coming back in your recent entries, and links to it in the belief tree.

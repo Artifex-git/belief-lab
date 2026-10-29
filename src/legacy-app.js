@@ -2,6 +2,7 @@ import * as ANCHOR from "./anchor.js";
 import { recurringRoot } from "./roots.js";
 import { weekKey, ritualOffered } from "./ritual.js";
 import { moveTag, FLOWS, STICKS } from "./moves.js";
+import { searchLog, excerpt } from "./search.js";
 
 // [domain, belief, preferred, root, move] -- 130-entry universal limiting-beliefs library (v0.3)
 const DOMAINS=[["worth","Worth","Worth"],["belonging","Belonging","Belonging"],["safety","Safety","Safety"],["control","Control & Agency","Control & Agency"],["desire","Desire","Desire"],["achievement","Achievement & Identity","Achievement & Identity"],["meaning","Meaning & Purpose","Meaning & Purpose"],["deservingness","Deservingness & Guilt","Deservingness & Guilt"],["judgment","Judgment & Comparison","Judgment & Comparison"],["attachment","Attachment & Outcome","Attachment & Outcome"],["time_scarcity","Time & Scarcity","Time & Scarcity"],["change","Change & the Unknown","Change & the Unknown"],["authenticity","Authenticity & Self-Expression","Authenticity & Self-Expression"]];
@@ -2134,6 +2135,7 @@ function rJourney(){
   const el=$("#v-journey"),E=entries(),C=checkins(),MI=moodInsights();
   const empty=!E.length&&!C.length&&!MI&&!pulses().length&&!practices().length;
   el.innerHTML=`<div class="hello"><h1>Your journey</h1><p class="lede">How you feel, what you've seen, loosened and done.</p></div>
+  ${empty?"":`<input type="search" id="jq" placeholder="Search everything you wrote" aria-label="Search your log" autocomplete="off"><div id="jres" aria-live="polite"></div>`}
   <div id="dash">${dashHTML()}</div>
   ${empty?`<section class="card"><p>Your journey fills up as you check in, talk things through and take steps.</p><div class="row" style="margin-top:12px"><button class="btn" data-go="today">Go to Today</button></div></section>`:""}
   <div id="insight">${insightCard()}</div>
@@ -2147,6 +2149,12 @@ function rJourney(){
   el.insertAdjacentHTML("beforeend",bodySummaryHTML()+treeSummaryHTML()+practiceLogHTML());
   bindTips(el);
 }
+document.addEventListener("input",e=>{
+  if(!e.target||e.target.id!=="jq")return;
+  const q=e.target.value,box=$("#jres");if(!box)return;
+  const hits=searchLog(store.items,q);
+  box.innerHTML=!q.trim()?"":hits.length?`<section class="card">${hits.map(h=>`<div class="jrow"><p>${esc(excerpt(h.text,h.terms))}</p><p class="meta">${h.label} · ${fmt(h.at)}</p></div>`).join("")}</section>`:`<section class="card"><p class="hint">Nothing found for “${esc(q.trim())}”.</p></section>`;
+});
 ACT.talkpattern=()=>{const MI=moodInsights();if(MI&&MI.pattern)startTalk(`On lower mornings this keeps coming up: "${MI.pattern}". Can we look at it?`)};
 ACT.del=a=>{if(a.dataset.arm){del(a.dataset.id)}else{a.dataset.arm=1;a.textContent="Tap again to delete";setTimeout(()=>{a.dataset.arm="";a.textContent="Delete"},3000)}};
 
