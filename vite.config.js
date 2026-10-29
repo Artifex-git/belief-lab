@@ -5,10 +5,12 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 export default defineConfig(({ mode }) => mode === "artifact" ? {
   // One self-contained HTML file for claude.ai: the coach then runs on your Claude subscription.
   plugins: [viteSingleFile()],
-  resolve: { alias: { "virtual:pwa-register": "/src/pwa-stub.js" } },
+  resolve: { alias: { "virtual:pwa-register": "/src/pwa-stub.js", "virtual:voice": "/src/voice-stub.js" } },
   build: { outDir: "dist-artifact", emptyOutDir: true, target: "es2022" },
 } : {
   build: { target: "es2022" },
+  worker: { format: "es" },
+  resolve: { alias: { "virtual:voice": "/src/voice.js" } },
   plugins: [
     VitePWA({
       registerType: "prompt",
@@ -17,7 +19,9 @@ export default defineConfig(({ mode }) => mode === "artifact" ? {
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//],
         globPatterns: ["**/*.{js,css,html,svg,png,json,webmanifest}"],
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         runtimeCaching: [
+          { urlPattern: /\/ort\//, handler: "CacheFirst", options: { cacheName: "ort", expiration: { maxEntries: 6 } } },
           { urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/, handler: "StaleWhileRevalidate", options: { cacheName: "fonts", expiration: { maxEntries: 20 } } },
         ],
       },

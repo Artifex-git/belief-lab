@@ -4,6 +4,8 @@ import { weekKey, ritualOffered } from "./ritual.js";
 import { moveTag, FLOWS, STICKS } from "./moves.js";
 import { searchLog, excerpt } from "./search.js";
 import { BOOK_PRACTICES } from "./book-practices.js";
+import * as VOICE from "virtual:voice";
+import { loadItems, saveItems, wipeAll, storageStatus } from "./storage.js";
 
 // [domain, belief, preferred, root, move] -- 130-entry universal limiting-beliefs library (v0.3)
 const DOMAINS=[["worth","Worth","Worth"],["belonging","Belonging","Belonging"],["safety","Safety","Safety"],["control","Control & Agency","Control & Agency"],["desire","Desire","Desire"],["achievement","Achievement & Identity","Achievement & Identity"],["meaning","Meaning & Purpose","Meaning & Purpose"],["deservingness","Deservingness & Guilt","Deservingness & Guilt"],["judgment","Judgment & Comparison","Judgment & Comparison"],["attachment","Attachment & Outcome","Attachment & Outcome"],["time_scarcity","Time & Scarcity","Time & Scarcity"],["change","Change & the Unknown","Change & the Unknown"],["authenticity","Authenticity & Self-Expression","Authenticity & Self-Expression"]];
@@ -625,7 +627,7 @@ async function initStore(){
   }catch(e){}
   if(!ok){loadLocal()}
 }
-function loadLocal(){store.items=lsGet("bl-items")||[];store.ready=true;rerender()}
+async function loadLocal(){store.items=await loadItems();store.ready=true;rerender()}
 function upsertLocal(full){const i=store.items.findIndex(x=>x._id===full._id);if(i>=0)store.items[i]=full;else store.items.unshift(full)}
 async function put(item){
   const id=item._id||(item.kind+"_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
@@ -634,12 +636,12 @@ async function put(item){
   upsertLocal(full);
   setTimeout(()=>{try{progressTick()}catch(e){}},0);
   if(store.mode==="private"){rerender();try{await store.col.doc(id).set(doc);return}catch(e){store.mode="local"}}
-  lsSet("bl-items",store.items);rerender();
+  saveItems(store.items);rerender();
 }
 async function del(id){
   store.items=store.items.filter(x=>x._id!==id);
   if(store.mode==="private"){try{await store.col.doc(id).delete();return}catch(e){}}
-  lsSet("bl-items",store.items);rerender();
+  saveItems(store.items);rerender();
 }
 const entries=()=>store.items.filter(x=>x.kind==="entry").sort((a,b)=>b.created_at-a.created_at);
 const checkins=()=>store.items.filter(x=>x.kind==="compass").sort((a,b)=>b.created_at-a.created_at);
@@ -965,7 +967,7 @@ function rToday(){
   if(needsWelcome()){cur="welcome";rerender(true);return}
   const nm=profileName();
   el.innerHTML=`<div class="hello"><p class="lbl">${esc(dateLabel())}</p><h1>${greet()}${nm?", "+esc(nm):""}.</h1></div>
-  ${momentumHTML()}
+  ${backupCard()}${momentumHTML()}
   <div id="checkin"></div><div id="ritual"></div><div id="statecard"></div><div id="day"></div><div id="dailyp"></div><div id="due"></div>${weekHTML()}`;
   rCheckin();rRitual();rStateCard();rDay();rDaily();rDue();
 }
@@ -2173,11 +2175,15 @@ function rYou(){
    <label class="row" style="gap:8px;cursor:pointer;margin-top:10px"><input type="checkbox" id="hist-tog" ${useHist()?"checked":""} style="accent-color:var(--teal);width:18px;height:18px" data-act="histtog"> Use my history to personalise coaching</label>
    <p style="margin-top:10px">Voice language <button class="miclang" data-act="miclang">${micLang().slice(0,2).toUpperCase()}</button></p>
    <div class="row" style="margin-top:12px"><button class="btn small ghost" data-act="export">Export all my data</button><button class="btn small ghost" data-act="import">Import data</button><button class="btn small ghost" data-act="intro">Show the intro again</button></div></section>
+  <section class="card"><h3 aria-level="2">Your data</h3><p class="hint" style="margin-top:6px">Everything you write is stored on this device only, in this app. Nothing is kept on a server. Close the app and open it again, and it is all still here. Switching to a different browser or phone starts empty, so keep a copy.</p>
+   <p class="hint" id="data-line" style="margin-top:8px">Checking storage…</p>
+   <div class="row" style="margin-top:10px"><button class="btn small ghost" data-act="export">Save a copy</button><button class="btn small ghost" data-act="wipe">Delete everything</button></div></section>
   <section class="card"><h3 aria-level="2">Help us improve</h3><p class="hint" style="margin-top:6px">Something broke, confused you, or you love it? Tell us in 15 seconds. Only what you type is sent, never your journal.</p><div class="row" style="margin-top:10px"><button class="btn small" data-act="feedback">Send feedback</button><button class="btn small ghost" data-act="whatsnew">What's new</button></div><p class="hint" id="about-line" style="margin-top:12px"></p></section>
   <section class="card"><h3 aria-level="2"><span class="etag">Model</span>How this works</h3>
    <p class="hint" style="margin-top:6px">The app follows the book's method: see a belief as a belief, follow what pulls you, take one real step with what you have, and let go of exactly how it turns out. Your coach aims for steps that work in the world as it is now. It can't know your whole life and can be wrong, so keep what fits.</p>
-   <p class="hint">Everything you save stays in your own space. When you ask for coaching, a summary of your history and what you type is sent to Claude to write the reply. Voice input uses your browser's speech service, and only the text is kept.</p>
+   <p class="hint">Everything you save stays in your own space. When you ask for coaching, a summary of your history and what you type is sent to Claude to write the reply. Voice input is turned into text on your phone. The recording is never saved or sent anywhere, only the words you keep.</p>
    <p class="hint">This is a thinking aid, not therapy or medical care.</p></section>`;
+  dataLine();
 }
 ACT.namesave=async()=>{const n=($("#you-name")?.value||"").trim().slice(0,40);const p=profile()||{_id:"profile",kind:"profile",onboarded:true,created_at:Date.now()};await put({...p,name:n});rerender(true)};
 function moodSpark(vals){
@@ -2289,70 +2295,120 @@ ACT.insight=async()=>{
 ACT.memsave=async()=>{const t=($("#mem-text")?.value||"").trim();if(!t)return;await put({_id:"coachmem",kind:"memory",text:t,created_at:Date.now(),edited:true})};
 ACT.memclear=a=>{if(a.dataset.arm){del("coachmem")}else{a.dataset.arm=1;a.textContent="Tap again to clear";setTimeout(()=>{a.dataset.arm="";a.textContent="Clear notes"},3000)}};
 ACT.export=async()=>{
+  lsSet("bl-lastexport",Date.now());
   const data=JSON.stringify({app:"The Belief Lab",exported_at:new Date().toISOString(),items:store.items.filter(x=>!x.example)},null,2);
   let dl=null;try{dl=await window.claude?.use?.("downloads")}catch(e){}
   if(dl){try{await dl.save({filename:"belief-lab-"+todayStr()+".json",data});}catch(e){}return}
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"application/json"}));a.download="belief-lab-"+todayStr()+".json";document.body.appendChild(a);a.click();a.remove();
 };
+async function dataLine(){
+  const st=await storageStatus(),n=store.items.filter(x=>!x.example).length,l=$("#data-line");if(!l)return;
+  const last=lsGet("bl-lastexport");
+  l.textContent=`${n} saved item${n===1?"":"s"}. ${st.persisted===true?"The phone is asked to keep this data safe from automatic clean-up.":st.persisted===false?"The phone has not promised to keep this data if it runs low on space, so a copy now and then is wise.":""} ${last?"Last copy saved "+fmt(last)+".":"No copy saved yet."}`.replace(/\s+/g," ").trim();
+}
+ACT.wipe=async a=>{
+  if(!a.dataset.arm){a.dataset.arm=1;a.textContent="Tap again to delete everything";setTimeout(()=>{a.dataset.arm="";a.textContent="Delete everything"},4000);return}
+  const inv=(()=>{try{return localStorage.getItem("bl-invite")}catch(e){return null}})();
+  await wipeAll();try{if(inv)localStorage.setItem("bl-invite",inv)}catch(e){}
+  location.reload();
+};
+const backupDue=()=>{
+  const real=store.items.filter(x=>!x.example);if(real.length<5)return false;
+  const last=lsGet("bl-lastexport")||0,snooze=lsGet("bl-backup-snooze")||0,first=Math.min(...real.map(x=>x.created_at||Date.now()));
+  return Date.now()>snooze&&Date.now()-(last||first)>30*DAY;
+};
+function backupCard(){return backupDue()?`<section class="card"><p class="lbl">A copy, now and then</p><p>Your entries live only on this phone. Save a copy of them once a month, so a lost phone or a cleared browser does not take your work with it.</p><div class="row" style="margin-top:10px"><button class="btn small" data-act="export">Save a copy</button><button class="btn small ghost" data-act="backuplater">Later</button></div></section>`:""}
+ACT.closesavefail=()=>{const d=document.getElementById("savefail");if(d)d.remove()};
+ACT.backuplater=()=>{lsSet("bl-backup-snooze",Date.now()+7*DAY);rerender(true)};
+window.addEventListener("bl-save-failed",()=>{
+  if(document.getElementById("savefail"))return;
+  const d=document.createElement("div");d.id="savefail";d.className="card";d.setAttribute("role","alert");d.style.cssText="position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top,0px));z-index:200";
+  d.innerHTML=`<p><b>Your last entry could not be saved on this device.</b> The phone may be out of space. Save a copy now.</p><div class="row" style="margin-top:8px"><button class="btn small" data-act="export">Save a copy</button><button class="btn small ghost" data-act="closesavefail">Close</button></div>`;
+  document.body.appendChild(d);
+});
 ACT.histtog=a=>{lsSet("bl-hist",!!a.checked)};
 /* ---------- VOICE INPUT ---------- */
+// Record, see the waveform, tap the tick: the words are written into the box. Speech to text runs on this device.
 const IN_VIEWER=!!(window.claude&&window.claude.use&&!window.__blShim);
-const SR=IN_VIEWER?null:(window.SpeechRecognition||window.webkitSpeechRecognition);
-let rec=null;
 const micLang=()=>lsGet("bl-lang")||((navigator.language||"").toLowerCase().startsWith("nl")?"nl-NL":"en-US");
 const MIC_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+let vr=null; // {id, rec, bars[], raf, state:"rec"|"work", pct}
+let taSeq=0;
 function addMics(){
-  document.querySelectorAll("main textarea[id], #pulse-ov textarea[id]").forEach(ta=>{
-    const nx=ta.nextElementSibling;
-    if(nx&&nx.classList.contains("microw"))return;
-    ta.insertAdjacentHTML("afterend",`<div class="microw"><button type="button" class="mic${rec&&rec._for===ta.id?" on":""}" data-act="mic" data-for="${ta.id}" aria-label="Speak instead of typing">${MIC_SVG}<span>${rec&&rec._for===ta.id?"Listening… tap to stop":"Speak"}</span></button><button type="button" class="miclang" data-act="miclang" aria-label="Voice language">${micLang().slice(0,2).toUpperCase()}</button><span class="michint" data-hint="${ta.id}"></span></div>`);
+  document.querySelectorAll("textarea").forEach(ta=>{
+    if(ta.closest("#nojs")||ta.dataset.nomic)return;
+    if(!ta.id)ta.id="ta-"+(++taSeq);
+    const nx=ta.nextElementSibling,mine=vr&&vr.id===ta.id;
+    if(nx&&nx.classList.contains("microw")){if(!!nx.dataset.rec!==!!mine)nx.outerHTML=micRow(ta.id);return}
+    ta.insertAdjacentHTML("afterend",micRow(ta.id));
   });
 }
+function micRow(id){
+  const on=vr&&vr.id===id;
+  if(!on)return `<div class="microw"><button type="button" class="mic" data-act="mic" data-for="${id}" aria-label="Speak instead of typing">${MIC_SVG}<span>Speak</span></button><button type="button" class="miclang" data-act="miclang" aria-label="Voice language">${micLang().slice(0,2).toUpperCase()}</button><span class="hint" data-hint="${id}" role="status"></span></div>`;
+  if(vr.state==="work")return `<div class="microw vrec" data-rec="1" data-for="${id}"><span class="vwork" role="status">${vr.pct!=null&&vr.pct<100&&!VOICE.modelReady()?`Getting the voice ready, once only… ${vr.pct}%`:"Writing it down…"}</span><button type="button" class="vbtn" data-act="micstop" aria-label="Cancel">✕</button></div>`;
+  return `<div class="microw vrec" data-rec="1" data-for="${id}"><button type="button" class="vbtn" data-act="micstop" aria-label="Cancel recording">✕</button><canvas class="vwave" width="600" height="72" aria-hidden="true"></canvas><span class="vtime" aria-live="off">0:00</span><button type="button" class="vbtn vok" data-act="micdone" aria-label="Done, write it down">✓</button></div>`;
+}
 let micQueued=false;
-new MutationObserver(()=>{if(micQueued)return;micQueued=true;queueMicrotask(()=>{micQueued=false;addMics()})}).observe(document.querySelector("main"),{childList:true,subtree:true});
+new MutationObserver(()=>{if(micQueued)return;micQueued=true;queueMicrotask(()=>{micQueued=false;addMics()})}).observe(document.body,{childList:true,subtree:true});
 function micHint(id,t){const h=document.querySelector(`[data-hint="${id}"]`);if(h)h.textContent=t}
-function micUI(id,on){const b=document.querySelector(`.mic[data-for="${id}"]`);if(!b)return;b.classList.toggle("on",on);b.querySelector("span").textContent=on?"Listening… tap to stop":"Speak"}
-document.addEventListener("visibilitychange",()=>{if(document.hidden)stopMic()});
-function stopMic(){if(rec){const r=rec;rec=null;r._err="stopped";try{r.stop()}catch(e){}micUI(r._for,false)}}
+function micRefresh(){const row=vr&&document.querySelector(`.microw[data-for="${vr.id}"]`)||(vr&&document.getElementById(vr.id)?.nextElementSibling);if(row&&vr)row.outerHTML=micRow(vr.id)}
+function micPaint(){
+  if(!vr||vr.state!=="rec")return;
+  const c=document.querySelector(`.vrec[data-for="${vr.id}"] canvas`);
+  if(c){
+    vr.bars.push(vr.rec.level());if(vr.bars.length>60)vr.bars.shift();
+    const g=c.getContext("2d"),W=c.width,H=c.height,n=60,bw=W/n;g.clearRect(0,0,W,H);
+    g.fillStyle=getComputedStyle(document.documentElement).getPropertyValue("--teal").trim()||"#2f7a6a";
+    vr.bars.forEach((v,i)=>{const h=Math.max(4,v*H),x=W-(vr.bars.length-i)*bw;g.fillRect(x+1,(H-h)/2,bw-3,h)});
+    const t=document.querySelector(`.vrec[data-for="${vr.id}"] .vtime`);if(t){const s=Math.floor(vr.rec.seconds());t.textContent=Math.floor(s/60)+":"+String(s%60).padStart(2,"0")}
+    if(vr.rec.seconds()>=VOICE.MAX_SECS){ACT.micdone();return}
+  }
+  vr.raf=requestAnimationFrame(micPaint);
+}
+function stopMic(){if(!vr)return;const v=vr;vr=null;cancelAnimationFrame(v.raf);try{v.rec&&v.rec.cancel()}catch(e){}const ta=document.getElementById(v.id);if(ta&&ta.nextElementSibling&&ta.nextElementSibling.classList.contains("microw"))ta.nextElementSibling.outerHTML=micRow(v.id)}
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&vr&&vr.state==="rec")stopMic()});
 ACT.miclang=()=>{lsSet("bl-lang",micLang()==="nl-NL"?"en-US":"nl-NL");document.querySelectorAll(".miclang").forEach(b=>b.textContent=micLang().slice(0,2).toUpperCase())};
-const IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
-function micErr(code){
-  if(code==="not-allowed")return IN_VIEWER?"Recording is not allowed inside this viewer. Use your keyboard's microphone key instead.":"The microphone is blocked. On iPhone: Settings, Safari, Microphone, set to Ask or Allow. Or use the microphone key on your keyboard.";
-  if(code==="service-not-allowed")return "Voice input is switched off on this device. On iPhone: Settings, General, Keyboard, turn on Enable Dictation. Or use the microphone key on your keyboard.";
-  if(code==="no-speech")return "Nothing heard. Tap Speak and try again.";
-  if(code==="network")return "Voice input needs an internet connection.";
-  if(code==="audio-capture")return "No microphone found.";
-  return "Voice input stopped ("+(code||"unknown")+"). The microphone key on your keyboard also works.";
+function micErr(e){
+  const n=e&&e.name;
+  if(n==="NotAllowedError"||n==="SecurityError")return "The microphone is blocked. On iPhone: Settings, Safari, Microphone, set to Ask or Allow. If you added the app to your home screen, also check Settings, Belief Lab.";
+  if(n==="NotFoundError"||n==="OverconstrainedError")return "No microphone found.";
+  return "Recording did not start. The microphone key on your keyboard also works.";
 }
-function startRec(id,restarts){
-  const ta=document.getElementById(id);if(!ta)return;
-  const r=new SR();r.lang=micLang();r.interimResults=true;r.continuous=!IOS;r._for=id;r._n=restarts||0;r._got=false;
-  const base=ta.value.trim()?ta.value.replace(/\s*$/," "):"";
-  let fin="";
-  r.onresult=e=>{
-    r._got=true;
-    let interim="";
-    for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t+" ";else interim+=t}
-    const t=document.getElementById(id);if(!t)return;
-    t.value=(base+fin+interim).replace(/\s+$/,interim?"":" ");
-    if(!interim)t.dispatchEvent(new Event("input",{bubbles:true}));
-  };
-  r.onerror=e=>{r._err=e.error;if(e.error==="aborted")return;if(e.error!=="no-speech"||!r._got)micHint(id,micErr(e.error))};
-  r.onend=()=>{
-    clearTimeout(r._t);
-    const t=document.getElementById(id);if(t)t.dispatchEvent(new Event("input",{bubbles:true}));
-    // iPhone ends a session after each phrase: keep listening until the user taps stop.
-    if(rec===r&&!r._err&&r._n<30){rec=null;try{startRec(id,r._n+1);return}catch(e){}}
-    if(rec===r)rec=null;micUI(id,false);
-  };
-  r.start();rec=r;r._t=setTimeout(stopMic,120000);micUI(id,true);
-}
-ACT.mic=a=>{
+ACT.mic=async a=>{
   const id=a.dataset.for;
-  if(rec){const was=rec._for;stopMic();if(was===id)return}
-  if(!SR){micHint(id,IN_VIEWER?"Recording does not work inside the Claude viewer. Use the microphone key on your keyboard, or open the app from your home screen.":"Voice input is not available in this browser. Use the microphone key on your keyboard.");return}
+  if(vr){stopMic();if(vr===null&&false)return}
+  if(!VOICE.supported){micHint(id,IN_VIEWER?"Recording does not work inside the Claude viewer. Open the app from your home screen, or use the microphone key on your keyboard.":"Recording is not available in this browser. Use the microphone key on your keyboard.");return}
   const ta=document.getElementById(id);if(!ta)return;
-  try{micHint(id,"");startRec(id,0);ta.focus()}catch(e){micHint(id,micErr(e&&e.name))}
+  micHint(id,"");
+  try{
+    const rec=await VOICE.startRecording();
+    vr={id,rec,bars:[],state:"rec",pct:null};
+    micRefresh();vr.raf=requestAnimationFrame(micPaint);
+    VOICE.warmUp(p=>{if(vr&&vr.state==="work"){vr.pct=p;micRefresh()}else if(vr)vr.pct=p});
+  }catch(e){micHint(id,micErr(e))}
+};
+ACT.micstop=()=>stopMic();
+ACT.micdone=async()=>{
+  if(!vr||vr.state!=="rec")return;
+  const v=vr;cancelAnimationFrame(v.raf);
+  const audio=await v.rec.stop();
+  if(audio.length<16000*0.6){stopMic();micHint(v.id,"That was very short. Tap Speak and try again.");return}
+  v.state="work";micRefresh();
+  try{
+    const text=await VOICE.transcribe(audio,micLang()==="nl-NL"?"dutch":"english",p=>{v.pct=p;if(vr===v)micRefresh()});
+    if(vr!==v)return; // cancelled meanwhile
+    vr=null;
+    const ta=document.getElementById(v.id);
+    if(ta&&text){ta.value=(ta.value.trim()?ta.value.replace(/\s*$/," "):"")+text;ta.dispatchEvent(new Event("input",{bubbles:true}));ta.focus()}
+    if(ta&&ta.nextElementSibling)ta.nextElementSibling.outerHTML=micRow(v.id);
+    if(!text)micHint(v.id,"Nothing heard. Tap Speak and try again.");
+  }catch(e){
+    console.warn("voice:",e&&e.message);
+    if(vr===v)vr=null;
+    const ta=document.getElementById(v.id);if(ta&&ta.nextElementSibling)ta.nextElementSibling.outerHTML=micRow(v.id);
+    micHint(v.id,navigator.onLine?"Could not turn that into text. Try again, or use the microphone key on your keyboard.":"The first time, the voice needs an internet connection to get ready.");
+  }
 };
 
 /* ---------- boot ---------- */

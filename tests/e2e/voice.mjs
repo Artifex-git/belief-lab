@@ -1,0 +1,33 @@
+// Real recording test: a fake microphone plays a speech sample, the on-device model writes it down.
+// Needs internet the first time (model download). Run: node tests/e2e/voice.mjs [path/to/speech.wav]
+import { chromium, devices } from "playwright-core";
+import { spawn } from "node:child_process";
+const wav = process.argv[2] || "/tmp/claude-1000/aud/jfk.wav";
+const srv = spawn("npx", ["vite", "preview", "--port", "4184", "--strictPort"], { stdio: "ignore" });
+await new Promise((r) => setTimeout(r, 2500));
+const fails = []; const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) fails.push(m); };
+const b = await chromium.launch({ executablePath: process.env.CHROMIUM || "/usr/bin/chromium", args: ["--no-sandbox", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-audio-capture=${wav}`] });
+const ctx = await b.newContext({ ...devices["iPhone 13"], permissions: ["microphone"] });
+await ctx.addInitScript(() => { localStorage.setItem("bl-items", JSON.stringify([{ _id: "profile", kind: "profile", onboarded: true, created_at: 1 }])); });
+const page = await ctx.newPage();
+const errs = []; page.on("pageerror", (e) => errs.push(e.message)); page.on("console", (m) => { if (m.type() === "error") console.log("console:", m.text().slice(0, 160)); });
+await page.route("**/fonts.g*/**", (r) => r.abort());
+await page.goto("http://localhost:4184/"); await page.waitForSelector("#nav button", { state: "attached" });
+await page.evaluate(() => document.querySelector('[data-go="talk"]').click()); await page.waitForTimeout(500);
+const id = await page.evaluate(() => document.querySelector(".mic")?.dataset.for);
+ok(!!id, "Speak button next to the text box");
+await page.evaluate(() => document.querySelector(".mic").click()); await page.waitForTimeout(1500);
+ok(await page.evaluate(() => !!document.querySelector(".vrec canvas")), "recorder bar with waveform shown");
+await page.waitForTimeout(6000);
+const t = await page.textContent(".vtime"); ok(t !== "0:00", "timer is running: " + t);
+await page.screenshot({ path: "shots/12-recording.png" });
+await page.evaluate(() => document.querySelector('[data-act="micdone"]').click());
+await page.waitForSelector(".vwork", { timeout: 5000 }).catch(() => {});
+await page.screenshot({ path: "shots/13-working.png" });
+await page.waitForFunction((id) => document.getElementById(id).value.length > 5, id, { timeout: 280000 }).catch(() => {});
+const v = await page.evaluate((id) => document.getElementById(id).value, id);
+console.log("TEXT:", v);
+ok(/country|ask|fellow|americans/i.test(v), "speech was written into the box");
+ok(await page.evaluate(() => !document.querySelector(".vrec")), "recorder bar closed");
+ok(errs.length === 0, "no page errors" + (errs[0] ? ": " + errs[0] : ""));
+await b.close(); srv.kill(); process.exit(fails.length ? 1 : 0);

@@ -3,6 +3,9 @@
 Lines under a version are shown to testers in the app under "What's new". Write them in plain language. Add `(#12)` when a line came from a feedback issue.
 
 ## Unreleased
+- Voice, rebuilt: tap Speak, see the waveform and timer, tap the tick and your words are written into the box. Works in every text box in the app. The recording is turned into text on your phone and is never saved or sent anywhere. The first time, a one-off download of about 90 MB gets the voice ready.
+- Your data: saved in two places on this device so one failing never loses it, with a clear "Your data" card under You, a monthly reminder to save a copy, and Delete everything.
+- Security: the app now refuses to load scripts, frames or connections from anywhere it does not need (policy headers).
 - Four more exercises: Take what's yours (Chapter 19), The walk-on (On Stage), The obstacle plan (The Hard Parts) and The long-game ledger (The Long Game).
 - Eleven more exercises from the book, in its own steps: The Three Breaths, Relax the Judgment, Trace the Reel, Don't wait for the echo, Own it don't blame it, Say what's real, The three questions, The already-have reframe, Let it be all right, Drop the qualifier, Don't sign it.
 - Voice on iPhone: keeps listening after each phrase instead of stopping, and says what to switch on (Dictation, microphone permission) when the phone blocks it.
