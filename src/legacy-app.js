@@ -1,4 +1,6 @@
 import * as ANCHOR from "./anchor.js";
+import { recurringRoot } from "./roots.js";
+import { moveTag, FLOWS, STICKS } from "./moves.js";
 
 // [domain, belief, preferred, root, move] -- 130-entry universal limiting-beliefs library (v0.3)
 const DOMAINS=[["worth","Worth","Worth"],["belonging","Belonging","Belonging"],["safety","Safety","Safety"],["control","Control & Agency","Control & Agency"],["desire","Desire","Desire"],["achievement","Achievement & Identity","Achievement & Identity"],["meaning","Meaning & Purpose","Meaning & Purpose"],["deservingness","Deservingness & Guilt","Deservingness & Guilt"],["judgment","Judgment & Comparison","Judgment & Comparison"],["attachment","Attachment & Outcome","Attachment & Outcome"],["time_scarcity","Time & Scarcity","Time & Scarcity"],["change","Change & the Unknown","Change & the Unknown"],["authenticity","Authenticity & Self-Expression","Authenticity & Self-Expression"]];
@@ -1593,11 +1595,12 @@ function rPractice(){
    <div><p class="lbl">Level ${L.i+1} of ${LEVELS.length}</p><h2 class="pullh" style="margin-top:2px">${L.name}</h2><p class="hint" style="margin-top:4px">${L.desc}${L.next?` ${L.toNext} to ${L.next}.`:""}</p>
    <p style="margin-top:8px"><span class="pill">${s.days} day${s.days===1?"":"s"} in a row</span>${s.grace?` <span class="hint">· ${s.grace} grace day${s.grace===1?"":"s"} used</span>`:""}</p></div></section>
   <p class="hint principle">Momentum grows with honest practice, not with results. A “not yet” you report counts as much as a “done”. Missing a day now and then doesn't break your streak.</p>
+  <p class="hint">The book's six moves. ${FLOWS}. ${STICKS}. A tag on an exercise shows the move it trains.</p>
   <section class="card treecta"><div class="row" style="justify-content:space-between"><div><h3>The belief tree</h3><p class="hint" style="margin-top:4px">Many different thoughts grow from a few roots. Sort 20 statements in about two minutes and see yours.</p></div><button class="btn" data-go="tree">Open</button></div></section>
   <section class="card daily"><div class="row" style="justify-content:space-between"><span class="lbl">Today's practice</span><span class="pill">${done?"Done":`+${E.pts+DAILY_BONUS}`}</span></div><h3 style="margin-top:6px">${esc(E.title)}</h3><p class="hint" style="margin-top:4px">${esc(E.why)}</p>
    ${done?"":`<div class="row" style="margin-top:10px"><button class="btn" data-act="exstart" data-id="${E.id}">Start · ${E.min} min</button></div>`}</section>
   <section class="card"><div class="row" style="justify-content:space-between"><h3>This week</h3><span class="lbl">${Math.min(wk,3)} of 3</span></div><p class="hint" style="margin-top:4px">Try three different exercises.</p><div class="m-bar wide"><i style="width:${Math.min(100,Math.round(wk/3*100))}%"></i></div></section>
-  ${Object.entries(CATS).map(([c,[name,sub]])=>`<section class="card"><h3>${name}</h3><p class="hint" style="margin-top:2px">${sub}</p><div class="exlist">${EX.filter(e=>e.cat===c).map(e=>`<button class="exrow" data-act="exstart" data-id="${e.id}"><span class="ex-t">${esc(e.title)}${counts[e.id]?` <span class="ex-done">✓${counts[e.id]>1?" "+counts[e.id]:""}</span>`:""}</span><span class="ex-m">${e.min} min · +${e.pts}</span></button>`).join("")}</div></section>`).join("")}
+  ${Object.entries(CATS).map(([c,[name,sub]])=>`<section class="card"><h3>${name}</h3><p class="hint" style="margin-top:2px">${sub}</p><div class="exlist">${EX.filter(e=>e.cat===c).map(e=>`<button class="exrow" data-act="exstart" data-id="${e.id}"><span class="ex-t">${esc(e.title)}${counts[e.id]?` <span class="ex-done">✓${counts[e.id]>1?" "+counts[e.id]:""}</span>`:""}</span><span class="ex-m">${moveTag(e.id)?`<span class="mvtag">${moveTag(e.id)}</span> · `:""}${e.min} min · +${e.pts}</span></button>`).join("")}</div></section>`).join("")}
   <section class="card"><h3>Milestones</h3><div class="badges">${MILESTONES.map(m=>`<div class="badge ${earned.has(m[0])?"on":""}" title="${esc(m[2])}"><b>${esc(m[1])}</b><span>${esc(m[2])}</span></div>`).join("")}</div></section>`;
 }
 function rRunner(el){
@@ -2114,6 +2117,10 @@ function treeSummaryCore(){
 ACT.opentree=()=>{treeMode="mine";go("tree")};
 
 /* ---------- JOURNEY ---------- */
+function rootsCard(){
+  if(dipNow())return "";
+  const r=recurringRoot(entries());if(!r)return "";
+  return `<section class="card"><p class="lbl"><span class="etag">Model</span>A pattern worth a look</p><p>${r.count} of your last ${r.of} entries point to <b>${esc(ROOTS[r.root]||r.root)}</b>. For many people a few roots sit under many beliefs, so this may be one of yours. Only you can tell.</p><div class="row" style="margin-top:10px"><button class="btn small ghost" data-go="tree">See it in the tree</button></div></section>`}
 function rJourney(){
   const el=$("#v-journey"),E=entries(),C=checkins(),MI=moodInsights();
   const empty=!E.length&&!C.length&&!MI&&!pulses().length&&!practices().length;
@@ -2121,6 +2128,7 @@ function rJourney(){
   <div id="dash">${dashHTML()}</div>
   ${empty?`<section class="card"><p>Your journey fills up as you check in, talk things through and take steps.</p><div class="row" style="margin-top:12px"><button class="btn" data-go="today">Go to Today</button></div></section>`:""}
   <div id="insight">${insightCard()}</div>
+  ${rootsCard()}
   ${MI?`<section class="card"><div class="row" style="justify-content:space-between"><h3>Mornings</h3><span class="lbl">${MI.streak} day streak</span></div>${moodSpark(MI.series)}
     <p class="hint" style="margin-top:6px">Average ${MI.avg7!=null?MI.avg7.toFixed(1):"–"} this week, ${MI.avg30!=null?MI.avg30.toFixed(1):"–"} this month.</p>
     ${MI.pattern?`<p style="margin-top:10px">On lower mornings this keeps showing up: <i>“${esc(MI.pattern)}”</i></p><div class="row" style="margin-top:8px"><button class="btn small ghost" data-act="talkpattern">Talk about it</button></div>`:""}</section>`:""}
