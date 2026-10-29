@@ -4,6 +4,7 @@ import info from "./build-info.json";
 const crumbs = [];
 const errors = [];
 let sent = 0;
+const sentFp = new Set();
 const NOISE = /ResizeObserver loop|^Script error\.?$|extension:\/\//i;
 
 export const getCrumbs = () => crumbs.map((c) => ({ t: c.t - Date.now(), a: c.a }));
@@ -33,9 +34,10 @@ export function report({ msg, stack = "" }) {
   if (!m || NOISE.test(m)) return;
   const where = (String(stack).split("\n").find((l) => /\.js|\.ts/.test(l)) || "").trim().slice(0, 120);
   errors.push({ msg: m, where, t: Date.now() }); if (errors.length > 10) errors.shift();
-  if (sent >= 5 || info.channel === "local") return;
-  sent++;
-  const body = JSON.stringify({ fp: fingerprint(m, stack), msg: m, stack: scrub(stack).slice(0, 600), screen: screen(), app: appInfo(), device: { standalone: isStandalone(), ua: navigator.userAgent } });
+  const fp = fingerprint(m, stack);
+  if (sent >= 5 || info.channel === "local" || sentFp.has(fp)) return;
+  sentFp.add(fp); sent++;
+  const body = JSON.stringify({ fp, msg: m, stack: scrub(stack).slice(0, 600), screen: screen(), app: appInfo(), device: { standalone: isStandalone(), ua: navigator.userAgent } });
   try { fetch("/api/error", { method: "POST", headers: { "content-type": "application/json" }, body, keepalive: true }).catch(() => {}); } catch {}
 }
 

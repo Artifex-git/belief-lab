@@ -1,5 +1,6 @@
 import * as ANCHOR from "./anchor.js";
 import { recurringRoot } from "./roots.js";
+import { weekKey, ritualOffered } from "./ritual.js";
 import { moveTag, FLOWS, STICKS } from "./moves.js";
 
 // [domain, belief, preferred, root, move] -- 130-entry universal limiting-beliefs library (v0.3)
@@ -963,9 +964,17 @@ function rToday(){
   const nm=profileName();
   el.innerHTML=`<div class="hello"><p class="lbl">${esc(dateLabel())}</p><h1>${greet()}${nm?", "+esc(nm):""}.</h1></div>
   ${momentumHTML()}
-  <div id="checkin"></div><div id="statecard"></div><div id="day"></div><div id="dailyp"></div><div id="due"></div>${weekHTML()}`;
-  rCheckin();rStateCard();rDay();rDaily();rDue();
+  <div id="checkin"></div><div id="ritual"></div><div id="statecard"></div><div id="day"></div><div id="dailyp"></div><div id="due"></div>${weekHTML()}`;
+  rCheckin();rRitual();rStateCard();rDay();rDaily();rDue();
 }
+function rRitual(){
+  const el=$("#ritual");if(!el)return;
+  if(!ritualOffered(lsGet("bl-ritual"),new Date(),dipNow())||!todayMood()||morn.stage==="low"){el.innerHTML="";return}
+  el.innerHTML=`<section class="card"><p class="lbl">This week</p><h2 class="ask">Which belief cost you the most this week?</h2>
+   <textarea id="rit-b" placeholder="Say it bluntly, like “I have to earn my rest.”"></textarea>
+   <div class="row" style="margin-top:10px"><button class="btn" data-act="ritualgo">Run the Lab on it</button><button class="linkbtn" data-act="ritualskip">Not this week</button></div></section>`}
+ACT.ritualgo=()=>{const b=($("#rit-b")?.value||"").trim();if(!b)return;if(distress(b)){showCare();return}lsSet("bl-ritual",weekKey());startLab("full",{src:"Weekly ritual",belief:b,domain:"",root:"",move:"",preferred:""})};
+ACT.ritualskip=()=>{lsSet("bl-ritual",weekKey());rRitual()};
 function rCheckin(){
   const el=$("#checkin");if(!el)return;
   const tm=todayMood();
