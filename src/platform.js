@@ -22,7 +22,6 @@ async function sampleDirect(prompt, key) {
 }
 
 async function sample(prompt) {
-  if (!getInviteCode() && !getApiKey()) await askInviteCode();
   const k = getApiKey(); if (k) return sampleDirect(prompt, k);
   const code = getInviteCode();
   const t0 = Date.now();
@@ -40,6 +39,7 @@ async function sample(prompt) {
   }
   if (Date.now() - t0 > 20000) report({ msg: "slow:ai" });
   if (res.status === 401) { clearInviteCode(); throw new Error("invite"); }
+  if (res.status === 503) { await askInviteCode(); const k2 = getApiKey(); if (k2) return sampleDirect(prompt, k2); throw new Error("no coach key"); }
   if (!res.ok) { report({ msg: "api-fail:ai " + res.status }); throw new Error("ai " + res.status); }
   const j = await res.json();
   if (!j.ok) throw new Error(j.reason || "ai");
@@ -58,7 +58,8 @@ async function save({ filename, data }) {
 }
 
 // Inside claude.ai the real runtime exists (AI on the person's own subscription): keep it.
-if (!(window.claude && window.claude.use)) window.claude = {
+if (!(window.claude && window.claude.use)) window.__blShim = true;
+if (window.__blShim) window.claude = {
   use: async (name) => {
     if (name === "sample") return sample;
     if (name === "downloads") return { save };

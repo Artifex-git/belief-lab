@@ -1,0 +1,21 @@
+// Hosted build (VERCEL_ENV=production): nothing opens without a valid invite code.
+import { chromium, devices } from "playwright-core";
+import { spawn, execSync } from "node:child_process";
+execSync("node scripts/build-info.mjs && npx vite build --outDir dist-gate", { env: { ...process.env, VERCEL_ENV: "production" }, stdio: "ignore" });
+const srv = spawn("npx", ["vite", "preview", "--outDir", "dist-gate", "--port", "4177", "--strictPort"], { stdio: "ignore" });
+await new Promise((r) => setTimeout(r, 2500));
+const fails = []; const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) fails.push(m); };
+const b = await chromium.launch({ executablePath: process.env.CHROMIUM || "/usr/bin/chromium", args: ["--no-sandbox"] });
+const page = await (await b.newContext({ ...devices["iPhone 13"] })).newPage();
+await page.route("**/fonts.g*/**", (r) => r.abort());
+await page.route("**/api/check", (r) => r.fulfill({ status: r.request().headers()["x-invite-code"] === "good-code" ? 200 : 401, json: { ok: r.request().headers()["x-invite-code"] === "good-code" } }));
+await page.goto("http://localhost:4177/"); await page.waitForSelector("#gate-in");
+ok(await page.locator("#fbpill").count() === 0 && await page.locator("#nav button").count() === 0, "before the code: no app, no feedback button");
+await page.fill("#gate-in", "wrong"); await page.click("#gate-ok"); await page.waitForTimeout(500);
+ok((await page.textContent("#gate-err")).includes("didn't work"), "wrong code is refused");
+await page.fill("#gate-in", "good-code"); await page.click("#gate-ok");
+await page.waitForSelector("#fbpill", { timeout: 8000 });
+ok(await page.locator("#gate-in").count() === 0, "right code opens the app");
+await page.reload(); await page.waitForSelector("#fbpill", { timeout: 8000 });
+ok(await page.locator("#gate-in").count() === 0, "code is remembered on this device");
+await b.close(); srv.kill(); process.exit(fails.length ? 1 : 0);

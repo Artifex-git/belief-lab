@@ -1,5 +1,6 @@
 // Breadcrumbs + automatic error reports. Never includes anything the person wrote.
 import info from "./build-info.json";
+import { getInviteCode } from "./access.js";
 
 const crumbs = [];
 const errors = [];
@@ -38,7 +39,7 @@ export function report({ msg, stack = "" }) {
   if (sent >= 5 || info.channel === "local" || sentFp.has(fp)) return;
   sentFp.add(fp); sent++;
   const body = JSON.stringify({ fp, msg: m, stack: scrub(stack).slice(0, 600), screen: screen(), app: appInfo(), device: { standalone: isStandalone(), ua: navigator.userAgent } });
-  try { fetch("/api/error", { method: "POST", headers: { "content-type": "application/json" }, body, keepalive: true }).catch(() => {}); } catch {}
+  try { fetch("/api/error", { method: "POST", headers: { "content-type": "application/json", "x-invite-code": getInviteCode() }, body, keepalive: true }).catch(() => {}); } catch {}
 }
 
 export const isStandalone = () => !!(navigator.standalone || matchMedia("(display-mode: standalone)").matches);

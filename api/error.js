@@ -1,5 +1,5 @@
 // POST automatic error report -> one deduplicated GitHub issue per fingerprint (label auto-error).
-import { json, sameOrigin, underCap, readBody, gh } from "./_lib.js";
+import { json, sameOrigin, validCode, underCap, readBody, gh } from "./_lib.js";
 
 // GitHub's issue list can lag a second behind a new issue; remember what this instance just created.
 const recent = new Map();
@@ -7,6 +7,7 @@ const recent = new Map();
 export default async function handler(req, res) {
   if (req.method !== "POST") return json(res, 405, { ok: false });
   if (!sameOrigin(req)) return json(res, 403, { ok: false });
+  if (!validCode(req)) return json(res, 401, { ok: false });
   if (!process.env.GITHUB_FEEDBACK_TOKEN || !process.env.GITHUB_REPO) return json(res, 503, { ok: false });
   let b; try { b = await readBody(req, 20_000); } catch { return json(res, 413, { ok: false }); }
   const fp = String(b.fp || "").replace(/[^0-9a-f]/g, "").slice(0, 8);

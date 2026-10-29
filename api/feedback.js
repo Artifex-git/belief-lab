@@ -6,6 +6,8 @@ const TYPES = ["bug", "confusing", "idea", "love"];
 export default async function handler(req, res) {
   if (req.method !== "POST") return json(res, 405, { ok: false });
   if (!sameOrigin(req)) return json(res, 403, { ok: false });
+  const code = validCode(req);
+  if (!code) return json(res, 401, { ok: false, reason: "invite" });
   if (!process.env.GITHUB_FEEDBACK_TOKEN || !process.env.GITHUB_REPO) return json(res, 503, { ok: false, reason: "not-configured" });
   let b; try { b = await readBody(req); } catch { return json(res, 413, { ok: false }); }
   if (!TYPES.includes(b.type)) return json(res, 400, { ok: false });

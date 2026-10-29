@@ -6,8 +6,9 @@ export default defineConfig(({ mode }) => mode === "artifact" ? {
   // One self-contained HTML file for claude.ai: the coach then runs on your Claude subscription.
   plugins: [viteSingleFile()],
   resolve: { alias: { "virtual:pwa-register": "/src/pwa-stub.js" } },
-  build: { outDir: "dist-artifact", emptyOutDir: true },
+  build: { outDir: "dist-artifact", emptyOutDir: true, target: "es2022" },
 } : {
+  build: { target: "es2022" },
   plugins: [
     VitePWA({
       registerType: "prompt",
