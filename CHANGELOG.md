@@ -3,6 +3,11 @@
 Lines under a version are shown to testers in the app under "What's new". Write them in plain language. Add `(#12)` when a line came from a feedback issue.
 
 ## Unreleased
+- New: a daily reminder under You. Pick a time and add it to your own Calendar; it rings even when the app is closed, and skipping a day is fine.
+- New: "Help me find it" on step 2 of the Lab reads your words and offers two or three beliefs that may sit underneath, a question to test them and one to try instead. Tap Use to fill it in.
+- New: Journey can suggest which belief to look at next, picked from the library using what you have already worked.
+- Voice: the Speak button now also appears on single-line fields, not only the big boxes.
+- Fixed: on older iPads and iPhones the coach could not be reached at all. When it fails now, the message says why.
 - Voice, rebuilt: tap Speak, see the waveform and timer, tap the tick and your words are written into the box. Works in every text box in the app. The recording is turned into text on your phone and is never saved or sent anywhere. The first time, a one-off download of about 90 MB gets the voice ready.
 - Your data: saved in two places on this device so one failing never loses it, with a clear "Your data" card under You, a monthly reminder to save a copy, and Delete everything.
 - Security: the app now refuses to load scripts, frames or connections from anywhere it does not need (policy headers).

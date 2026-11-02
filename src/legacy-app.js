@@ -1,5 +1,6 @@
 import * as ANCHOR from "./anchor.js";
 import { recurringRoot } from "./roots.js";
+import { buildIcs, parseTime } from "./reminder.js";
 import { weekKey, ritualOffered } from "./ritual.js";
 import { moveTag, FLOWS, STICKS } from "./moves.js";
 import { searchLog, excerpt } from "./search.js";
@@ -779,7 +780,7 @@ function rLab(){
         body+=`<div class="suggest" style="flex-direction:column;align-items:stretch;gap:8px"><span class="hint" style="margin:0">Close to what you're naming, from the library:</span>${localSugg.map(b=>{const val=suggTarget==="belief"?b.belief:b.preferred;return`<div class="row" style="justify-content:space-between;gap:10px"><i style="flex:1">${esc(val)}</i><button class="btn small ghost" data-act="chipuse" data-f="${pf}" data-val="${esc(val)}">Use</button></div>`}).join("")}</div>`;
       }
     }
-    body+=`<div class="row" style="margin-top:4px"><button class="btn small ghost" data-act="tip" data-n="${n}">${n===9?"Make it reachable":"Coach tip"}</button></div><div id="tip-out" style="margin-top:8px"></div>`;
+    body+=`<div class="row" style="margin-top:4px"><button class="btn small ghost" data-act="tip" data-n="${n}">${n===9?"Make it reachable":"Coach tip"}</button>${n===2?'<button class="btn small" data-act="labfind">Help me find it</button>':""}</div><div id="tip-out" style="margin-top:8px"></div>`;
   }
   if(S.slider){body+=`<div style="margin-block:18px"><p class="big"><span id="rv">${lab.d.believability_start}</span><span class="muted" style="font-size:1.4rem">/10</span></p><input type="range" id="rate" min="0" max="10" value="${lab.d.believability_start}" oninput="document.getElementById('rv').textContent=this.value"><div class="row" style="justify-content:space-between"><span class="hint">Not at all</span><span class="hint">Completely</span></div></div>${lab.warn?`<div class="warn">That one won't hold yet. Reach for the most positive version you can genuinely believe today, even a small one, and use that instead.</div>`:""}`}
   if(S.finish){body+=`<div class="card" style="margin-block:14px">${[["Belief",lab.d.belief_raw],["Looser belief",lab.d.preferred_belief],["Believability",lab.d.believability_start!=null?lab.d.believability_start+"/10":""],["First step",lab.d.action]].filter(x=>x[1]).map(x=>`<p><span class="mono">${x[0]}</span><br>${esc(x[1])}</p>`).join('<div style="height:10px"></div>')||'<p class="muted">Nothing written yet. You can still save and fill it in later.</p>'}</div>`}
@@ -812,8 +813,52 @@ ACT.tip=async a=>{
   }[n]||"Offer a short, concrete nudge for this step.";
   const prompt=`${BOOK_CONTEXT}\n\n${REACH_RULES}${memBlock()}\n\n${COACH_VOICE}\n\nContext for this step: ${stepContext}\n\nWhat they've written so far in this pass:\nSituation: ${d.situation||"-"}\nBelief: ${d.belief_raw||"-"}\nClaim about self: ${d.self_claim||"-"}\nWhat it protects: ${d.cost_protection||"-"}\nPreferred belief draft: ${d.preferred_belief||"-"}\nPlanned step draft: ${d.action||"-"}\n\nGive ONE short, concrete tip (under ${n===9?70:45} words) to help them with THIS step specifically. Plain text, no lists, no headings. If there isn't enough written yet to say something specific, ask one plain question instead that would help them write the next sentence. Reply in the language they wrote in.`;
   try{const r=await sample(prompt,{cache:false,modelTier:"quick"});out.innerHTML=`<div class="reflect">${esc(r.text)}</div>`}
-  catch(e){out.innerHTML='<p class="hint">Could not reach Claude just now.</p>'}
+  catch(e){out.innerHTML=`<p class="hint">${aiErrText(e)}</p>`}
 };
+
+const aiErrText=e=>{
+  const m=String(e&&e.message||e);
+  if(m==="invite")return"The coach did not accept your invite code or key. Open You, enter it again, then retry.";
+  if(m==="no coach key")return"The coach is not switched on for this app yet (no key on the server).";
+  if(/^ai 429/.test(m))return"The coach has hit today's limit. Try again tomorrow.";
+  if(/^ai (5\d\d)/.test(m))return"The coach service is having a moment. Try again in a minute.";
+  return`Could not reach Claude just now. Check your connection and try again. (${cut(m,40)})`;
+};
+/* Richer reading for step 2: several candidate beliefs, the claim, a test question and an alternative, each one tappable. */
+let labFind=null;
+ACT.labfind=async()=>{
+  saveFields();
+  const out=$("#tip-out"),d=lab.d,raw=[d.situation,d.belief_raw].filter(Boolean).join("\n").trim();
+  if(!out)return;
+  if(!raw){out.innerHTML='<p class="hint">Write a few words first, even messy ones.</p>';return}
+  if(distress(raw)){showCare();return}
+  let sample;try{sample=await window.claude?.use?.("sample")}catch(e){}
+  if(!sample){const m=suggestFromLibrary(raw,1)[0];labFind=m?{reading:"",beliefs:[{belief:m.belief,self_claim:"",root:m.root}],test:"Is this a fact, or a belief about the facts? What would you say to a friend who thought this?",alternative:m.preferred,offline:true}:null;out.innerHTML=labFind?labFindHTML():'<p class="hint">The coach is not available in this view.</p>';return}
+  out.innerHTML=`<p class="hint">Reading what you wrote…</p>`;
+  const prompt=`${BOOK_CONTEXT}\n\n${STYLE_RULES}\n\n${COACH_VOICE}${memBlock()}\n\nThe person is at the step "what would you have to believe is true for that reaction to make complete sense?". Their words may be rambling, mixed or partly garbled (for example from voice input). Read generously and say what you think they mean. Several feelings can be present at once and may rest on the same belief in opposite directions (for example gladness when someone falls and a sting when someone rises both measure oneself against others). Name that if it fits.\n<data>\n${cut(raw,2500)}\n</data>\n\nReply with JSON only, no code fences: {"reading": one or two plain sentences saying what you think is going on, hedged, under 50 words, "beliefs": two or three different candidate beliefs underneath, each said bluntly in plain first-person words, each with "belief", "self_claim" (starting "I'm someone who...") and "root" (worth, safety, belonging or control), "test": one sharp question that tests the most likely belief against real life, "alternative": one preferred belief they could actually believe today, not a mirror-image slogan}. Be hedged, never diagnose, offer these as possibilities for them to accept or change.`;
+  try{
+    const r=await sample(prompt,{cache:false});
+    const o=parseJSON(r.text),s=v=>cut(typeof v==="string"?v:"",300);
+    const bl=o&&Array.isArray(o.beliefs)?o.beliefs.slice(0,3).map(b=>({belief:s(b&&b.belief),self_claim:s(b&&b.self_claim),root:["worth","safety","belonging","control"].includes(b&&b.root)?b.root:""})).filter(b=>b.belief):[];
+    if(!bl.length)throw new Error("shape");
+    labFind={reading:s(o.reading),beliefs:bl,test:s(o.test),alternative:s(o.alternative)};
+    out.innerHTML=labFindHTML();
+  }catch(e){out.innerHTML=`<p class="hint">${aiErrText(e)}</p>`}
+};
+function labFindHTML(){
+  const R=labFind;if(!R)return"";
+  return `<div class="reflect">${R.offline?'<p class="hint">Offline: matched against common beliefs.</p>':""}${R.reading?`<p>${esc(R.reading)}</p>`:""}
+  <p class="lbl" style="margin-top:12px">It may be one of these. Tap the one that fits</p>
+  ${R.beliefs.map((b,i)=>`<div class="row" style="justify-content:space-between;gap:10px;margin-top:8px"><i style="flex:1">${esc(b.belief)}${b.self_claim?`<br><span class="hint">${esc(b.self_claim)}</span>`:""}</i><button class="btn small ghost" data-act="labuse" data-i="${i}">Use</button></div>`).join("")}
+  ${R.test?`<p class="lbl" style="margin-top:14px">A question to test it</p><p>${esc(R.test)}</p>`:""}
+  ${R.alternative?`<p class="lbl" style="margin-top:14px">One to try instead (for step 7)</p><div class="row" style="justify-content:space-between;gap:10px"><i style="flex:1">${esc(R.alternative)}</i><button class="btn small ghost" data-act="labalt">Keep for later</button></div>`:""}</div>`;
+}
+ACT.labuse=a=>{
+  saveFields();const b=labFind&&labFind.beliefs[+a.dataset.i];if(!b)return;
+  lab.d.belief_raw=b.belief;if(b.self_claim&&!lab.d.self_claim)lab.d.self_claim=b.self_claim;if(b.root)lab.d.root=b.root;
+  rLab();
+};
+ACT.labalt=()=>{saveFields();if(labFind&&labFind.alternative){lab.d.sugg=labFind.alternative;rLab()}};
 ACT.back=()=>{saveFields();lab.i=Math.max(0,lab.i-1);rLab()};
 ACT.next=()=>{
   stopMic();
@@ -2135,6 +2180,37 @@ function rootsCard(){
   if(dipNow())return "";
   const r=recurringRoot(entries());if(!r)return "";
   return `<section class="card"><p class="lbl"><span class="etag">Model</span>A pattern worth a look</p><p>${r.count} of your last ${r.of} entries point to <b>${esc(ROOTS[r.root]||r.root)}</b>. For many people a few roots sit under many beliefs, so this may be one of yours. Only you can tell.</p><div class="row" style="margin-top:10px"><button class="btn small ghost" data-go="tree">See it in the tree</button></div></section>`}
+
+/* ---------- NEXT BELIEF TO EXAMINE: Claude picks from the library, grounded in the person's own entries ---------- */
+let nextB=null,nextBusy=false;
+const workedSet=()=>new Set(entries().filter(e=>!e.example).map(e=>e.belief_raw));
+function nextCandidates(){
+  const E=entries().filter(e=>!e.example),done=workedSet(),roots={},cores={};
+  E.slice(0,12).forEach(e=>{if(e.root)roots[e.root]=(roots[e.root]||0)+1;const m=B.find(b=>b.belief===e.belief_raw);if(m)cores[m.core]=(cores[m.core]||0)+1});
+  const score=b=>(roots[b.root]||0)*2+(cores[b.core]||0)*3;
+  return B.filter(b=>!done.has(b.belief)).map(b=>({b,s:score(b)+Math.random()*0.5})).sort((a,b)=>b.s-a.s).slice(0,30).map(x=>x.b);
+}
+function nextBeliefHTML(){
+  const n=entries().filter(e=>!e.example).length;
+  if(dipNow()||n<2)return"";
+  if(nextBusy)return`<section class="card">${thinking("Looking for your next belief")}</section>`;
+  if(!nextB)return`<section class="card"><h3 aria-level="2">What to look at next</h3><p class="muted" style="margin-top:6px">Claude reads what you have already worked and picks beliefs from the library that are likely to be running too.</p><div class="row" style="margin-top:12px"><button class="btn" data-act="nextb">Suggest my next belief</button></div></section>`;
+  return`<section class="card"><p class="lbl">${nextB.offline?"From the library, by your recurring roots":"Suggested for you"}</p>${nextB.picks.map((p,i)=>`<div class="jrow"><p class="old">${esc(p.b.belief)}</p>${p.why?`<p class="hint">${esc(p.why)}</p>`:""}<div class="row" style="margin-top:8px"><button class="btn small" data-act="nextgo" data-i="${i}">Examine this</button></div></div>`).join("")}
+  <p class="hint" style="margin-top:10px"><span class="etag">Model</span>A guess from your history, not a verdict. Skip any that don't fit. <button class="btn small ghost" data-act="nextb">Other ideas</button></p></section>`;
+}
+ACT.nextb=async()=>{
+  if(nextBusy)return;
+  const cands=nextCandidates(),E=entries().filter(e=>!e.example).slice(0,10),box=()=>$("#nextb");
+  const local=()=>({offline:true,picks:cands.slice(0,3).map(b=>({b,why:""}))});
+  nextBusy=true;if(box())box().innerHTML=nextBeliefHTML();
+  const hist=E.map(e=>`- ${cut(e.belief_raw,140)}${e.self_claim?` | ${cut(e.self_claim,100)}`:""}${e.preferred_belief?` | preferred: ${cut(e.preferred_belief,100)}`:""}`).join("\n");
+  const r=await callClaude(`${BOOK_CONTEXT}\n\n${STYLE_RULES}\n\n${COACH_VOICE}${memBlock()}\n\nThe person has already worked these beliefs:\n<data>\n${hist}\n</data>\n\nFrom this candidate library list only, pick the three beliefs most likely to be running underneath their patterns and worth examining next. Prefer ones that are neighbours of their recurring beliefs but not duplicates, and mix one that is a little different. For each give a one-sentence "why" (under 25 words, hedged, speaking to "you").\nCandidates:\n${cands.map(b=>`${b.id}: ${b.belief}`).join("\n")}\n\nReply with JSON only, no code fences: {"picks":[{"id":"","why":""}]}`,{cache:false});
+  const o=r.ok&&parseJSON(r.text);
+  const picks=o&&Array.isArray(o.picks)?o.picks.map(p=>({b:cands.find(b=>b.id===(p&&p.id)),why:cut(p&&p.why,200)})).filter(p=>p.b).slice(0,3):[];
+  nextB=picks.length?{offline:false,picks}:local();
+  nextBusy=false;if(box())box().innerHTML=nextBeliefHTML();
+};
+ACT.nextgo=a=>{const p=nextB&&nextB.picks[+a.dataset.i];if(!p)return;const b=p.b;startLab("full",{src:"Suggested from your history",belief:b.belief,domain:b.domain,root:b.root,move:b.move,preferred:b.preferred})};
 function rJourney(){
   const el=$("#v-journey"),E=entries(),C=checkins(),MI=moodInsights();
   const empty=!E.length&&!C.length&&!MI&&!pulses().length&&!practices().length;
@@ -2144,6 +2220,7 @@ function rJourney(){
   ${empty?`<section class="card"><p>Your journey fills up as you check in, talk things through and take steps.</p><div class="row" style="margin-top:12px"><button class="btn" data-go="today">Go to Today</button></div></section>`:""}
   <div id="insight">${insightCard()}</div>
   ${rootsCard()}
+  <div id="nextb">${nextBeliefHTML()}</div>
   ${MI?`<section class="card"><div class="row" style="justify-content:space-between"><h3 aria-level="2">Mornings</h3><span class="lbl">${MI.streak} day streak</span></div>${moodSpark(MI.series)}
     <p class="hint" style="margin-top:6px">Average ${MI.avg7!=null?MI.avg7.toFixed(1):"–"} this week, ${MI.avg30!=null?MI.avg30.toFixed(1):"–"} this month.</p>
     ${MI.pattern?`<p style="margin-top:10px">On lower mornings this keeps showing up: <i>“${esc(MI.pattern)}”</i></p><div class="row" style="margin-top:8px"><button class="btn small ghost" data-act="talkpattern">Talk about it</button></div>`:""}</section>`:""}
@@ -2175,6 +2252,9 @@ function rYou(){
    <label class="row" style="gap:8px;cursor:pointer;margin-top:10px"><input type="checkbox" id="hist-tog" ${useHist()?"checked":""} style="accent-color:var(--teal);width:18px;height:18px" data-act="histtog"> Use my history to personalise coaching</label>
    <p style="margin-top:10px">Voice language <button class="miclang" data-act="miclang">${micLang().slice(0,2).toUpperCase()}</button></p>
    <div class="row" style="margin-top:12px"><button class="btn small ghost" data-act="export">Export all my data</button><button class="btn small ghost" data-act="import">Import data</button><button class="btn small ghost" data-act="intro">Show the intro again</button></div></section>
+  <section class="card"><h3 aria-level="2">Daily reminder</h3><p class="hint" style="margin-top:6px">One quiet nudge a day, from your own Calendar app. Pick a time, tap the button, and add it. It rings even when this app is closed. Skipping a day is fine, nothing keeps count.</p>
+   <div class="row" style="margin-top:10px;align-items:center"><label for="rem-time" class="hint" style="margin:0">Time</label><input type="time" id="rem-time" value="${esc(lsGet("bl-remind")||"08:00")}" style="width:auto"><button class="btn small" data-act="remind">Add to Calendar</button></div>
+   <p class="hint" id="rem-msg" style="margin-top:8px" role="status">${lsGet("bl-remind")?"Last added for "+esc(lsGet("bl-remind"))+". To change it, delete the old event in Calendar first.":""}</p></section>
   <section class="card"><h3 aria-level="2">Your data</h3><p class="hint" style="margin-top:6px">Everything you write is stored on this device only, in this app. Nothing is kept on a server. Close the app and open it again, and it is all still here. Switching to a different browser or phone starts empty, so keep a copy.</p>
    <p class="hint" id="data-line" style="margin-top:8px">Checking storage…</p>
    <div class="row" style="margin-top:10px"><button class="btn small ghost" data-act="export">Save a copy</button><button class="btn small ghost" data-act="wipe">Delete everything</button></div></section>
@@ -2185,6 +2265,16 @@ function rYou(){
    <p class="hint">This is a thinking aid, not therapy or medical care.</p></section>`;
   dataLine();
 }
+ACT.remind=async()=>{
+  const v=($("#rem-time")?.value||"").trim(),msg=$("#rem-msg");
+  if(!parseTime(v)){if(msg)msg.textContent="Pick a time first.";return}
+  const file=new File([buildIcs({time:v,url:location.origin+"/"})],"belief-lab-reminder.ics",{type:"text/calendar"});
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:"The Belief Lab daily reminder"})}
+    else{const a=document.createElement("a");a.href=URL.createObjectURL(file);a.download=file.name;document.body.appendChild(a);a.click();a.remove()}
+    lsSet("bl-remind",v);if(msg)msg.textContent="Choose Calendar, then Add. Your reminder is set for "+v+" every day."
+  }catch(e){if(e&&e.name==="AbortError")return;if(msg)msg.textContent="Could not open Calendar from here. Try again in Safari."}
+};
 ACT.namesave=async()=>{const n=($("#you-name")?.value||"").trim().slice(0,40);const p=profile()||{_id:"profile",kind:"profile",onboarded:true,created_at:Date.now()};await put({...p,name:n});rerender(true)};
 function moodSpark(vals){
   const W=300,H=60,n=vals.length;if(!n)return"";
@@ -2335,8 +2425,8 @@ const MIC_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 let vr=null; // {id, rec, bars[], raf, state:"rec"|"work", pct}
 let taSeq=0;
 function addMics(){
-  document.querySelectorAll("textarea").forEach(ta=>{
-    if(ta.closest("#nojs")||ta.dataset.nomic)return;
+  document.querySelectorAll('textarea,input[type="text"],input[type="search"]').forEach(ta=>{
+    if(ta.closest("#nojs")||ta.dataset.nomic||/^(inv-in|gate-in)$/.test(ta.id)||ta.autocomplete==="one-time-code")return;
     if(!ta.id)ta.id="ta-"+(++taSeq);
     const nx=ta.nextElementSibling,mine=vr&&vr.id===ta.id;
     if(nx&&nx.classList.contains("microw")){if(!!nx.dataset.rec!==!!mine)nx.outerHTML=micRow(ta.id);return}
