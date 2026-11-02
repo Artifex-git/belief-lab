@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   if (!underCap(code, Number(process.env.DAILY_CAP || 150))) return json(res, 429, { ok: false, reason: "cap" });
   if (distress(prompt)) return json(res, 200, { ok: false, reason: "care" });
   try {
-    const text = await complete({ system: SYSTEM, prompt });
+    const text = await complete({ system: SYSTEM, prompt, json: b.json === true });
     return json(res, 200, { ok: true, text });
   } catch (e) { return json(res, e && e.name === "TimeoutError" ? 504 : 502, { ok: false, reason: e && e.name === "TimeoutError" ? "timeout" : "upstream" }); }
 }

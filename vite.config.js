@@ -14,15 +14,14 @@ export default defineConfig(({ mode }) => mode === "artifact" ? {
   plugins: [
     VitePWA({
       registerType: "prompt",
-      includeAssets: ["icon.svg", "apple-touch-icon.png"],
+      includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       workbox: {
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//],
-        globPatterns: ["**/*.{js,css,html,svg,png,json,webmanifest}"],
+        globPatterns: ["**/*.{js,css,html,svg,png,json,webmanifest,woff2}"],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         runtimeCaching: [
           { urlPattern: /\/ort\//, handler: "CacheFirst", options: { cacheName: "ort", expiration: { maxEntries: 6 } } },
-          { urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/, handler: "StaleWhileRevalidate", options: { cacheName: "fonts", expiration: { maxEntries: 20 } } },
         ],
       },
       manifest: {
