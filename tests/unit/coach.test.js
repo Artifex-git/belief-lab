@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
-import { makeDb, retrieve, buildPrompt, normalize, localFallback, gentleFlags, TASK_IDS } from "../../src/coach/engine.js";
+import { makeDb, retrieve, buildPrompt, normalize, localFallback, gentleFlags, buildReportPrompt, normalizeReport, TASK_IDS } from "../../src/coach/engine.js";
 import { geminiConfig } from "../../api/_llm.js";
 const db = makeDb(JSON.parse(readFileSync(new URL("../../data/beliefs_seed.json", import.meta.url), "utf8")));
 const JEALOUS = "my previous boss got demoted and it felt good; now a colleague is managing partner and it stings. jealousy? he worked hard for it";
@@ -38,4 +38,9 @@ describe("api/coach", () => {
   it("accepts only known tasks", async () => expect((await call({ task: "write me a poem", text: "hi" })).c).toBe(400));
   it("shows the care sheet for distress instead of calling the AI", async () => { const f = vi.fn(); vi.stubGlobal("fetch", f); const r = await call({ task: "belief", text: "I want to kill myself" }); expect(r.b.reason).toBe("care"); expect(f).not.toHaveBeenCalled(); });
   it("returns checked options", async () => { vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ reading: "r", options: [{ text: "I have to earn my place", id: "J1" }] }) }] } }] }) }))); const r = await call({ task: "belief", text: JEALOUS }); expect(r.c).toBe(200); expect(r.b.data.options[0].id).toBe("J1"); });
+});
+describe("belief report", () => {
+  it("builds a report prompt with the core details and the safety boundaries", () => { const p = buildReportPrompt({ db, summary: "I keep piling work up", cores: ["earn", "judged"], mem: "" }); expect(p).toMatch(/I have to earn my worth/); expect(p).toMatch(/never diagnose/i); expect(p).toMatch(/<data>/); });
+  it("keeps only real cores and cuts long text", () => { const r = normalizeReport({ headline: "h", summary: "s", patterns: [{ core: "earn", insight: "x".repeat(900), loosen: "l" }, { core: "made-up", insight: "i" }], strengths: "st", next: "n" }, db); expect(r.patterns.length).toBe(1); expect(r.patterns[0].insight.length).toBeLessThanOrEqual(320); expect(normalizeReport({ headline: "h" }, db)).toBeNull(); });
+  it("task list includes report", () => expect(TASK_IDS).toContain("report"));
 });

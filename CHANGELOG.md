@@ -3,6 +3,11 @@
 Lines under a version are shown to testers in the app under "What's new". Write them in plain language. Add `(#12)` when a line came from a feedback issue.
 
 ## Unreleased
+- The coach is now a conversation. Under any suggestion you can reply in your own words, ask a question, tap Go deeper on a specific suggestion, or say Not quite, and it builds on everything said so far. Earlier turns stay visible.
+- Your core beliefs: every core belief you accept is remembered on this device and fed into later coaching, so the coach notices what keeps coming back. See and remove them in Journey, clear them under You, or export them as a file.
+- Belief report: a printable one-page map of your beliefs, the core beliefs behind them and ways to loosen them, written by the AI if you choose, and saved as a PDF. It asks before anything is sent.
+- Simpler Today: the coach is the front door ("What's on your mind?"), the extras sit under More for today, and the monthly save-a-copy reminder moves below. Practice and You fold their long lists away.
+- Talk now knows your core beliefs, helps you loosen a belief once it is found, and can point to a practice that helps you see it.
 - A Coach button now sits next to Speak on the Lab steps, Compass, your morning and evening lines, and the practices. It offers a few possible beliefs, claims, questions or steps, read from the whole belief library and your own words. Tap That fits, say Not quite, or steer it in your own direction, and go one layer deeper when the first answer feels too surface.
 - Talk no longer asks the same question back when you ask for help finding the belief: it offers two or three candidates to tap, and you can say none fit.
 - Journey shows the core belief that several of the beliefs you have worked seem to grow from.
