@@ -819,10 +819,11 @@ ACT.tip=async a=>{
 const aiErrText=e=>{
   const m=String(e&&e.message||e);
   if(m==="invite")return"The coach did not accept your invite code or key. Open You, enter it again, then retry.";
-  if(m==="no coach key")return"The coach is not switched on for this app yet (no key on the server).";
+  if(m==="key")return"That AI key was not accepted. Check it and paste it again.";
+  if(m==="no coach key")return"The coach is not switched on for this app yet (no key on the server). Tap Coach tip again and paste your own AI key (sk-ant-… or AIza…) when asked.";
   if(/^ai 429/.test(m))return"The coach has hit today's limit. Try again tomorrow.";
   if(/^ai (5\d\d)/.test(m))return"The coach service is having a moment. Try again in a minute.";
-  return`Could not reach Claude just now. Check your connection and try again. (${cut(m,40)})`;
+  return`Could not reach the coach just now. Check your connection and try again. (${cut(m,40)})`;
 };
 /* Richer reading for step 2: several candidate beliefs, the claim, a test question and an alternative, each one tappable. */
 let labFind=null;

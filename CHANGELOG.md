@@ -3,6 +3,7 @@
 Lines under a version are shown to testers in the app under "What's new". Write them in plain language. Add `(#12)` when a line came from a feedback issue.
 
 ## Unreleased
+- The coach can now run on Google Gemini as well as Claude, for testing. Choose with a setting on the server, or paste your own key on the device.
 - New: a daily reminder under You. Pick a time and add it to your own Calendar; it rings even when the app is closed, and skipping a day is fine.
 - New: "Help me find it" on step 2 of the Lab reads your words and offers two or three beliefs that may sit underneath, a question to test them and one to try instead. Tap Use to fill it in.
 - New: Journey can suggest which belief to look at next, picked from the library using what you have already worked.
