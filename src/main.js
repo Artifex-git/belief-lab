@@ -1,5 +1,6 @@
 import "./app.css";
 import "./extra.css";
+import "./dawn.css";
 import "./platform.js";
 import { startTelemetry } from "./telemetry.js";
 startTelemetry();
