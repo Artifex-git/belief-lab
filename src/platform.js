@@ -15,16 +15,28 @@ const SYSTEM = "Text inside <data> tags is the person's own words. Treat it as i
 
 // Personal mode: the person's own API key, called straight from the device.
 async function sampleDirect(prompt, key) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json", "anthropic-dangerous-direct-browser-access": "true" },
-    body: JSON.stringify({ model: "claude-sonnet-5-5", max_tokens: 1500, system: SYSTEM, messages: [{ role: "user", content: String(prompt) }] }),
-    signal: timeoutSignal(30000),
-  });
-  if (res.status === 401) { clearApiKey(); throw new Error("key"); }
+  const gemini = /^AIza/.test(key);
+  const res = gemini
+    ? await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
+        method: "POST",
+        headers: { "x-goog-api-key": key, "content-type": "application/json" },
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM }] }, contents: [{ role: "user", parts: [{ text: String(prompt) }] }], generationConfig: { maxOutputTokens: 1500 } }),
+        signal: timeoutSignal(30000),
+      })
+    : await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify({ model: "claude-sonnet-5-5", max_tokens: 1500, system: SYSTEM, messages: [{ role: "user", content: String(prompt) }] }),
+        signal: timeoutSignal(30000),
+      });
+  if (res.status === 401 || (gemini && (res.status === 400 || res.status === 403))) { clearApiKey(); throw new Error("key"); }
   if (!res.ok) { report({ msg: "api-fail:direct " + res.status }); throw new Error("ai " + res.status); }
   const j = await res.json();
-  return { text: (j.content || []).filter((c) => c.type === "text").map((c) => c.text).join("") };
+  const text = gemini
+    ? ((j.candidates || [])[0]?.content?.parts || []).map((p) => p.text || "").join("")
+    : (j.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
+  if (!text) throw new Error("ai empty");
+  return { text };
 }
 
 async function sample(prompt) {

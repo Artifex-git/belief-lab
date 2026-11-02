@@ -11,8 +11,8 @@ export function askInviteCode() {
     o.className = "care-ov on";
     o.innerHTML = `<div class="care" role="dialog" aria-modal="true" aria-label="Invite code">
       <h3>Connect the coach</h3>
-      <p class="hint" style="margin-top:6px">The coach needs an Anthropic API key. Paste yours (starts with sk-ant-). It stays on this device and goes only to Anthropic.</p>
-      <input type="text" id="inv-in" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="sk-ant-… or invite code" style="margin-top:12px">
+      <p class="hint" style="margin-top:6px">The coach needs an AI key. Paste yours (Anthropic starts with sk-ant-, Google Gemini starts with AIza). It stays on this device and goes only to that provider.</p>
+      <input type="text" id="inv-in" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="sk-ant-… / AIza… / invite code" style="margin-top:12px">
       <p class="hint" id="inv-err" style="margin-top:8px" role="status"></p>
       <div class="row" style="margin-top:12px"><button class="btn" id="inv-ok">Save</button><button class="btn ghost" id="inv-no">Not now</button></div></div>`;
     document.body.appendChild(o);
@@ -21,7 +21,7 @@ export function askInviteCode() {
     o.querySelector("#inv-ok").onclick = () => {
       const v = o.querySelector("#inv-in").value.trim();
       if (!v) { o.querySelector("#inv-err").textContent = "Type the code first."; return; }
-      try { localStorage.setItem(/^sk-ant-/.test(v) ? KEYK : KEY, v); } catch {}
+      try { localStorage.setItem(/^(sk-ant-|AIza)/.test(v) ? KEYK : KEY, v); } catch {}
       done(resolve, v);
     };
     setTimeout(() => o.querySelector("#inv-in").focus(), 50);
