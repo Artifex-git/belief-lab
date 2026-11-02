@@ -7,15 +7,22 @@ export const providerName = () => {
 };
 export const configured = () => (providerName() === "gemini" ? !!process.env.GEMINI_API_KEY : !!process.env.ANTHROPIC_API_KEY);
 
+// Gemini "flash" models spend part of the output budget on hidden thinking unless it is switched off, which can leave the reply empty.
+export const geminiConfig = (model, maxTokens, json) => ({
+  maxOutputTokens: maxTokens,
+  ...(json ? { responseMimeType: "application/json" } : {}),
+  ...(/flash/i.test(model) && !/pro/i.test(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+});
+
 /** Returns the reply text. Throws Error("upstream") on any provider failure or empty reply. */
-export async function complete({ system, prompt, maxTokens = 1500, timeout = 25_000 }) {
+export async function complete({ system, prompt, maxTokens = 1500, timeout = 25_000, json = false }) {
   const signal = AbortSignal.timeout(timeout);
   if (providerName() === "gemini") {
     const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: "POST",
       headers: { "x-goog-api-key": process.env.GEMINI_API_KEY, "content-type": "application/json" },
-      body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: maxTokens } }),
+      body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: geminiConfig(model, maxTokens, json) }),
       signal,
     });
     if (!r.ok) throw new Error("upstream");
