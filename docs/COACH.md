@@ -3,6 +3,15 @@
 ## What the person sees
 A **Coach** button sits next to **Speak** on the Lab steps, Compass, the morning and evening lines and the practices. It shows 2 to 3 candidates (beliefs, claims, questions or steps). The person taps **That fits** (the words go into the field), **Not quite** (the option is dropped and remembered), or types a steer ("more about being judged") and taps **Try again**. **One layer deeper** runs the downward arrow towards the core beliefs. Talk offers the same choices as chips. Journey shows the core that several worked beliefs share.
 
+## It is a conversation
+Each panel keeps a thread: the person can reply in their own words (`feedback.reply`), tap **Go deeper** on one suggestion (task `deeper` with that belief as the text and the original words in `ctx.original`), or say **Not quite**. The earlier turns go back to the coach as `feedback.thread`, so it builds on them and does not repeat itself. The server accepts at most the last six turns.
+
+## The core belief profile
+Accepting a suggestion that carries a core belief (or tapping one in Talk) saves it to a device-local item `coreprofile`: per core, how often it came up and up to five of the person's own accepted wordings. It is sent with later coaching calls (`profile`, five short lines) only when "Use my history to personalise coaching" is on. Journey shows it, "Not me" removes one core, You clears it all, and **Export** writes a portable JSON file (`kind: core-belief-profile`). Nothing is stored on a server.
+
+## The belief report
+`task: "report"` sends a short text summary (counts, the latest beliefs, the core ids) and gets back a headline, summary, a reading and a way to loosen each core, strengths and a next step. The report page is plain HTML styled for print (`@media print`); "Save as PDF" opens the device's print sheet. "Without AI" builds the same page from the database alone. The person is asked before the summary is sent.
+
 ## How it is grounded
 `src/coach/engine.js` (pure, tested in `tests/unit/coach.test.js`):
 1. `retrieve()` ranks all 529 beliefs in `data/beliefs_seed.json` against what the person wrote (BM25 on the belief, reframe, recognition, area and cluster, plus a small English and Dutch concept map that points everyday words like "jealous" at a cluster). It also ranks the 37 core beliefs.

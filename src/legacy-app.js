@@ -846,6 +846,20 @@ async function askCoach(payload){
   if(!sample)throw new Error("na");
   const{coachLocal}=await import("./coach/client.js");return coachLocal(payload,sample);
 }
+/* The profile of core beliefs: every core belief the person accepts is remembered on this device and fed into later coaching. */
+const profileItem=()=>store.items.find(x=>x._id==="coreprofile");
+function profileAdd(o,src){
+  if(!o||!o.core||!coreOf(o.core))return false;
+  const cur=profileItem()||{_id:"coreprofile",kind:"coreprofile",cores:{},created_at:Date.now()};
+  const cores={...cur.cores},c={...(cores[o.core]||{n:0,first:Date.now(),beliefs:[]})};
+  c.n++;c.last=Date.now();const t=cut(o.text,160);
+  c.beliefs=[{t,at:Date.now(),src},...(c.beliefs||[]).filter(b=>b.t!==t)].slice(0,5);cores[o.core]=c;
+  put({...cur,cores,updated_at:Date.now()});return true;
+}
+function profileLines(){
+  if(!useHist())return[];const p=profileItem();if(!p)return[];
+  return Object.entries(p.cores).sort((a,b)=>b[1].n-a[1].n).slice(0,5).map(([id,c])=>{const k=coreOf(id);return k?`${k.belief} (came up ${c.n}x)${c.beliefs&&c.beliefs[0]?": "+c.beliefs[0].t:""}`:null}).filter(Boolean);
+}
 ACT.assist=async a=>{
   const id=a.dataset.for,ta=document.getElementById(id);if(!ta)return;
   if(cur==="lab")saveFields();
@@ -853,18 +867,28 @@ ACT.assist=async a=>{
   const text=ta.value.trim();
   if(text.length<3){micHint(id,"Write a few words first, even messy ones.");return}
   if(distress(text+" "+Object.values(c.ctx).join(" "))){showCare();return}
-  AS[id]={...c,id,text,accepted:[],rejected:[],rejectedIds:[],steer:"",res:null,busy:false,err:""};
-  assistRun(id);
+  AS[id]={...c,id,text,turns:[],accepted:[],rejected:[],rejectedIds:[],steer:"",res:null,busy:false,err:"",pending:"",depth:0};
+  assistRun(id,{});
 };
-async function assistRun(id,task){
-  const s=AS[id];if(!s)return;s.busy=true;s.err="";assistPaint(id);
-  const m=coachMem(),payload={task:task||s.task,text:s.text,ctx:s.ctx,feedback:{accepted:s.accepted,rejected:s.rejected,rejectedIds:s.rejectedIds,steer:s.steer},mem:useHist()&&m&&m.text?cut(m.text,900):""};
-  try{s.res=await askCoach(payload)}
-  catch(e){
+const turnSummary=r=>r?[r.reading,...(r.options||[]).map(o=>o.text)].filter(Boolean).join(" / "):"";
+/* opts: {task, text, ctx, reply, you}. "you" is what the person did, kept in the conversation once the coach has answered. */
+async function assistRun(id,opts){
+  const s=AS[id];if(!s)return;opts=opts||{};
+  s.busy=true;s.err="";s.pending=opts.reply||"";assistPaint(id);
+  const m=coachMem(),prev=s.res,
+    payload={task:opts.task||s.task,text:opts.text||s.text,ctx:opts.ctx||s.ctx,
+      feedback:{accepted:s.accepted,rejected:s.rejected,rejectedIds:s.rejectedIds,steer:s.steer,reply:opts.reply||"",thread:s.turns.filter(t=>t.you).map(t=>({c:turnSummary(t.res),y:t.you}))},
+      mem:useHist()&&m&&m.text?cut(m.text,900):"",profile:profileLines()};
+  try{
+    const r=await askCoach(payload);
+    if(prev&&opts.you)s.turns.push({res:prev,you:opts.you});
+    s.res=r;s.steer="";
+  }catch(e){
     if(String(e&&e.message)==="care"){delete AS[id];assistPaint(id);showCare();return}
-    s.err=aiErrText(e);try{const{coachOffline}=await import("./coach/client.js");s.res=await coachOffline(payload)}catch(e2){s.res=null}
+    s.err=aiErrText(e);
+    if(!prev){try{const{coachOffline}=await import("./coach/client.js");s.res=await coachOffline(payload)}catch(e2){s.res=null}}
   }
-  s.busy=false;assistPaint(id);
+  s.busy=false;s.pending="";assistPaint(id);
 }
 function assistPaint(id){
   const s=AS[id],ta=document.getElementById(id);if(!ta)return;
@@ -872,22 +896,25 @@ function assistPaint(id){
   if(!s){if(box)box.remove();return}
   if(!box){const row=ta.nextElementSibling,anchor=row&&row.classList.contains("microw")?row:ta;anchor.insertAdjacentHTML("afterend",`<div class="assist" id="assist-${id}" aria-live="polite"></div>`);box=document.getElementById("assist-"+id)}
   box.innerHTML=assistHTML(id,s);
+  bindEnter("asteer-"+id,()=>ACT.asteer({dataset:{for:id}}));
 }
 function assistHTML(id,s){
-  if(s.busy)return thinking("Reading what you wrote");
+  const past=s.turns.length?`<details class="aprev"><summary>Earlier in this conversation (${s.turns.length})</summary>${s.turns.map(t=>`<p class="acoach">${esc(cut(t.res.reading||(t.res.options[0]&&t.res.options[0].text)||"",260))}</p><p class="ayou">${esc(t.you)}</p>`).join("")}</details>`:"";
+  if(s.busy)return `${past}${s.pending?`<p class="ayou">${esc(s.pending)}</p>`:""}${thinking("Thinking it through")}`;
   const R=s.res,test=s.task==="test";
-  if(!R||!R.options.length)return `<p class="hint">${esc(s.err||"Nothing came back. Try steering it, or close this.")}</p>${assistSteer(id,s,true)}`;
-  return `<p class="ah"><span class="etag">Model</span> ${R.offline?"From the library, because the coach could not be reached.":"Suggestions from the book's library and your words. You decide."}</p>
-  ${s.err&&!R.offline?`<p class="hint">${esc(s.err)}</p>`:""}${R.reading?`<p class="areading">${esc(R.reading)}</p>`:""}
+  if(!R)return `${past}<p class="hint">${esc(s.err||"Nothing came back.")}</p>${assistReply(id,s)}`;
+  return `${past}<p class="ah"><span class="etag">Model</span> ${R.offline?"From the library, because the coach could not be reached.":"Possibilities from the book's library and your words. You decide."}${s.depth?` · layer ${s.depth+1}`:""}</p>
+  ${s.err?`<p class="hint">${esc(s.err)}</p>`:""}${R.reading?`<p class="areading">${esc(R.reading)}</p>`:""}
   ${R.options.map((o,i)=>`<div class="aopt${o.done?" done":""}"><p class="atext">${esc(o.text)}</p>${o.claim?`<p class="hint">${esc(o.claim)}</p>`:""}${o.why?`<p class="hint">${esc(o.why)}</p>`:""}
    <p class="atags"><span class="etag">${o.id?"From the library":"Coach's guess"}</span>${o.coreBelief?` <span class="hint">Often grows from “${esc(o.coreBelief)}”</span>`:""}</p>
-   <div class="row"><button class="btn small" data-act="aok" data-for="${id}" data-i="${i}">${test?(o.done?"Marked helpful":"Helpful"):"That fits"}</button><button class="btn small ghost" data-act="ano" data-for="${id}" data-i="${i}">Not quite</button></div></div>`).join("")}
-  ${R.question?`<p class="lbl" style="margin-top:12px">A question to tell them apart</p><p>${esc(R.question)}</p>`:""}${assistSteer(id,s)}`;
+   <div class="row"><button class="btn small" data-act="aok" data-for="${id}" data-i="${i}">${test?(o.done?"Marked helpful":"Helpful"):"That fits"}</button><button class="btn small ghost" data-act="adown" data-for="${id}" data-i="${i}">Go deeper</button><button class="btn small ghost" data-act="ano" data-for="${id}" data-i="${i}">Not quite</button></div></div>`).join("")}
+  ${R.question?`<p class="lbl" style="margin-top:12px">A question to go further</p><p class="aq">${esc(R.question)}</p>`:""}${assistReply(id,s)}`;
 }
-const assistSteer=(id,s,empty)=>`<label class="f" for="asteer-${id}">${empty?"Tell me which way to go":"None of these? Steer it"}</label><input type="text" id="asteer-${id}" placeholder="What's off, or what is it more about?" value="${esc(s.steer||"")}"><div class="row" style="margin-top:8px"><button class="btn small" data-act="asteer" data-for="${id}">Try again</button><button class="btn small ghost" data-act="adeeper" data-for="${id}">One layer deeper</button><button class="btn small ghost" data-act="aclose" data-for="${id}">Close</button></div>`;
+const assistReply=(id,s)=>`<label class="f" for="asteer-${id}">Reply to the coach</label><textarea id="asteer-${id}" rows="2" placeholder="Answer the question, say what's off, or ask something…">${esc(s.draft||"")}</textarea><div class="row" style="margin-top:8px"><button class="btn small" data-act="asteer" data-for="${id}">Send</button><button class="btn small ghost" data-act="adeeper" data-for="${id}">One layer deeper</button><button class="btn small ghost" data-act="aclose" data-for="${id}">Close</button></div>`;
 ACT.aok=a=>{
   const id=a.dataset.for,s=AS[id],i=+a.dataset.i,o=s&&s.res&&s.res.options[i];if(!o)return;
   aiLog(s.task,o,"yes");s.accepted.push(o.text);
+  if(profileAdd(o,s.task))toast("Noted in your core beliefs");
   if(s.task==="test"){o.done=true;assistPaint(id);return}
   if(cur==="lab"&&s.fill){
     saveFields();lab.d[s.fill]=o.text;
@@ -902,8 +929,24 @@ ACT.ano=a=>{
   aiLog(s.task,o,"no");s.rejected.push(o.text);if(o.id)s.rejectedIds.push(o.id);s.res.options.splice(i,1);assistPaint(id);
   if(!s.res.options.length){const t=document.getElementById("asteer-"+id);if(t)t.focus()}
 };
-ACT.asteer=a=>{const id=a.dataset.for,s=AS[id];if(!s)return;const t=document.getElementById("asteer-"+id);s.steer=t?t.value.trim():"";if(s.steer&&distress(s.steer)){showCare();return}aiLog(s.task,null,"steer");assistRun(id)};
-ACT.adeeper=a=>{const id=a.dataset.for,s=AS[id];if(!s)return;const t=document.getElementById("asteer-"+id);s.steer=t?t.value.trim():"";aiLog(s.task,null,"deeper");assistRun(id,"deeper")};
+const draftOf=id=>{const t=document.getElementById("asteer-"+id);return t?t.value.trim():""};
+ACT.asteer=a=>{
+  const id=a.dataset.for,s=AS[id];if(!s)return;const v=draftOf(id);
+  if(!v){const t=document.getElementById("asteer-"+id);if(t)t.focus();return}
+  if(distress(v)){showCare();return}
+  aiLog(s.task,null,"reply");assistRun(id,{reply:v,you:v});
+};
+ACT.adown=a=>{
+  const id=a.dataset.for,s=AS[id],o=s&&s.res&&s.res.options[+a.dataset.i];if(!o)return;
+  aiLog(s.task,o,"deeper");s.depth++;
+  assistRun(id,{task:"deeper",text:o.text,ctx:{...s.ctx,original:s.text},you:`Go deeper from: “${cut(o.text,140)}”`});
+};
+ACT.adeeper=a=>{
+  const id=a.dataset.for,s=AS[id];if(!s)return;const v=draftOf(id);if(v&&distress(v)){showCare();return}
+  const base=s.accepted[s.accepted.length-1]||(s.res&&s.res.options[0]&&s.res.options[0].text)||s.text;
+  aiLog(s.task,null,"deeper");s.depth++;
+  assistRun(id,{task:"deeper",text:base,ctx:{...s.ctx,original:s.text},reply:v,you:v||`One layer deeper from: “${cut(base,140)}”`});
+};
 ACT.aclose=a=>{delete AS[a.dataset.for];assistPaint(a.dataset.for)};
 ACT.labfind=()=>{const t=document.getElementById("f-belief_raw");if(t)ACT.assist({dataset:{for:"f-belief_raw"}})};
 ACT.back=()=>{saveFields();lab.i=Math.max(0,lab.i-1);rLab()};
@@ -1059,10 +1102,12 @@ function rToday(){
   if(needsWelcome()){cur="welcome";rerender(true);return}
   const nm=profileName();
   el.innerHTML=`<div class="hello"><p class="lbl">${esc(dateLabel())}</p><h1>${greet()}${nm?", <i>"+esc(nm[0].toUpperCase()+nm.slice(1))+".</i>":"."}</h1></div>
-  ${backupCard()}<div id="evening"></div>
-  <div id="checkin"></div>${momentumHTML()}<div id="ritual"></div><div id="statecard"></div><div id="day"></div><div id="dailyp"></div><div id="due"></div>${weekHTML()}`;
+  <div id="evening"></div>
+  <div id="checkin"></div>${talkCtaHTML()}<div id="day"></div><div id="due"></div>${momentumHTML()}${backupCard()}
+  <details class="more-today"><summary>More for today</summary><div id="ritual"></div><div id="statecard"></div><div id="dailyp"></div>${weekHTML()}</details>`;
   rEvening();rCheckin();rRitual();rStateCard();rDay();rDaily();rDue();
 }
+const talkCtaHTML=()=>dipNow()?"":`<section class="card talkcta"><p class="lbl">Your coach</p><h2 class="ask">What's on your mind?</h2><p class="hint">Say it messy. Your coach helps you find the belief underneath, and how to loosen it.</p><div class="row" style="margin-top:12px"><button class="btn" data-act="talk">Talk it through</button><button class="linkbtn" data-act="start" data-mode="quick">Or step by step</button></div></section>`;
 function rRitual(){
   const el=$("#ritual");if(!el)return;
   if(!ritualOffered(lsGet("bl-ritual"),new Date(),dipNow())||!todayMood()||morn.stage==="low"){el.innerHTML="";return}
@@ -1246,7 +1291,7 @@ ACT.talknew=()=>{talk=null;rTalk()};
 ACT.work=a=>{const b=B.find(x=>x.id===a.dataset.id);if(b)startTalk(`I recognise this belief in myself: "${b.belief}". Can we look at it?`)};
 ACT.start=a=>startLab(a.dataset.mode);
 ACT.starter=a=>{talk=newTalk();sendTalk(STARTERS[+a.dataset.i])};
-ACT.talkopt=a=>{const m=talk&&talk.msgs[talk.msgs.length-1],x=m&&m.opts&&m.opts[+a.dataset.i];if(!x)return;aiLog("talk",x,"yes");if(x.core)talk.capture.core=x.core;sendTalk(`That fits: "${x.text}"`)};
+ACT.talkopt=a=>{const m=talk&&talk.msgs[talk.msgs.length-1],x=m&&m.opts&&m.opts[+a.dataset.i];if(!x)return;aiLog("talk",x,"yes");if(x.core)talk.capture.core=x.core;if(profileAdd(x,"talk"))toast("Noted in your core beliefs");sendTalk(`That fits: "${x.text}"`)};
 ACT.talknone=()=>{const m=talk&&talk.msgs[talk.msgs.length-1];if(m&&m.opts)m.opts.forEach(x=>aiLog("talk",x,"no"));sendTalk("None of those quite fit. Can you try a different angle?")};
 ACT.talkdeeper=()=>sendTalk("Can we go one layer deeper? If that were true, what would it mean about me?");
 ACT.talksend=()=>{const t=$("#talk-in"),v=t?t.value:"";if(!v.trim())return;if(!talk)talk=newTalk();sendTalk(v)};
@@ -1278,7 +1323,7 @@ function bindEnter(id,fn){const t=document.getElementById(id);if(t)t.addEventLis
 function drawTalk(){
   const L=$("#talk-log");if(!L||!talk)return;
   const lastC=talk.msgs.length-1;
-  L.innerHTML=talk.msgs.map((m,k)=>`<div class="bub ${m.r}">${nl2br(m.t)}</div>${k===lastC&&m.r==="coach"&&m.opts&&m.opts.length&&!talk.done&&!talk.pending?`<div class="talkopts" role="group" aria-label="Possible beliefs"><p class="lbl"><span class="etag">Model</span> Does one of these fit?</p>${m.opts.map((x,i)=>`<button class="chip big" data-act="talkopt" data-i="${i}">${esc(x.text)}</button>`).join("")}<button class="chip big ghostchip" data-act="talknone">None of these</button><button class="chip big ghostchip" data-act="talkdeeper">Go one layer deeper</button></div>`:""}`).join("")+(talk.pending?'<div class="bub coach"><span class="dots"><i></i><i></i><i></i></span></div>':"")+(talk.note?`<div class="bub coach note">${esc(talk.note)}${talk.noteWs?' <button class="linkbtn" data-act="start" data-mode="quick">Open the worksheet</button>':""}</div>`:"");
+  L.innerHTML=talk.msgs.map((m,k)=>`<div class="bub ${m.r}">${nl2br(m.t)}</div>${k===lastC&&m.r==="coach"&&m.opts&&m.opts.length&&!talk.done&&!talk.pending?`<div class="talkopts" role="group" aria-label="Possible beliefs"><p class="lbl"><span class="etag">Model</span> Does one of these fit?</p>${m.opts.map((x,i)=>`<button class="chip big" data-act="talkopt" data-i="${i}">${esc(x.text)}</button>`).join("")}<button class="chip big ghostchip" data-act="talknone">None of these</button><button class="chip big ghostchip" data-act="talkdeeper">Go one layer deeper</button></div>`:""}${k===lastC&&m.r==="coach"&&m.practice&&!talk.done&&!talk.pending?`<div class="talkopts"><p class="lbl">A practice that may help you see it</p><button class="btn small" data-act="exstart" data-id="${esc(m.practice)}">Try: ${esc((EX.find(e=>e.id===m.practice)||{}).title||"")}</button></div>`:""}`).join("")+(talk.pending?'<div class="bub coach"><span class="dots"><i></i><i></i><i></i></span></div>':"")+(talk.note?`<div class="bub coach note">${esc(talk.note)}${talk.noteWs?' <button class="linkbtn" data-act="start" data-mode="quick">Open the worksheet</button>':""}</div>`:"");
   const c=$(".composer")||L.lastElementChild;if(c&&talk.msgs.length>1)try{c.scrollIntoView({block:"nearest"})}catch(e){}
 }
 async function sendTalk(text){
@@ -1292,8 +1337,9 @@ async function sendTalk(text){
   talk.pending=false;coachBusy=false;applyTalk(r);
 }
 function talkPrompt(finish,libBlock){
+  const prof=profileLines(),cat=EX.map(e=>e.id+": "+cut(e.title,40)).join("; ");
   const turns=talk.msgs.slice(-14).map(m=>(m.r==="you"?"Person: ":"Coach: ")+cut(m.t,500)).join("\n");
-  return `${BOOK_CONTEXT}\n\n${REACH_RULES}\n\n${STYLE_RULES}\n\n${COACH_VOICE}\n\nYou are the person's coach in a short talk-it-through conversation (about five minutes, six to ten exchanges). Stage 0 means there is no situation yet: if they only ask a question or chat, answer briefly and helpfully at stage 0. As soon as they bring a real situation, walk it through these stages one at a time, moving on as soon as a stage is answered well enough:\n1 What's happening: the situation, plainly.\n2 What it means to them: the feeling, and the meaning they gave the event.\n3 The belief underneath: what they would have to believe for that reaction to make sense; get the blunt version and the "I'm someone who..." claim.\n4 Fact or belief?: one or two sharp questions that loosen it; never argue.\n5 What they prefer: a preferred belief they can actually believe today, not a slogan.\n6 Their pull and next step: what excites them here, even slightly, and one step reachable today with what they have, held without insisting on the outcome.\n7 Commit: reflect the shift in one line, confirm the step, close warmly.\nCurrent stage: ${talk.stage}.\nWhen the person asks for help finding the belief, or you reach stage 3 or 5, do NOT ask the question back at them: put two or three candidate beliefs in "options" (blunt first-person words, under 16 words each, genuinely different, grounded in the LIBRARY below) and keep "reply" to a short lead-in under 40 words. They tap the one that fits or say none do; if none do, offer different ones in the direction they give. When a belief is found and the person wants to go deeper, offer options one layer deeper (the downward arrow: if that were true, what would it mean about them?). Otherwise leave "options" empty.\nNever decide for them: offer a preferred belief or a step as a suggestion they can accept or change, and keep their wording when they give it.\n<data>\n${coachContext("")}\n</data>\n\nConversation so far:\n<data>\n${turns}\n</data>\n\n${finish?"They want to wrap up now: go straight to stage 7 with what you have and set done to true.":"Reply to their latest message."}\nReply with JSON only, no code fences: {"reply": your message (under 70 words, plain text, at most one question), "stage": 0 to 7, "capture": {"situation": "", "belief": "", "self_claim": "", "preferred": "", "pull": "", "action": "", "root": "", "domain": ""} (fill only what has become clear, in their words where possible; root is one of worth, safety, belonging, control; domain is one of ${DOMAINS.map(d=>d[0]).join(", ")}), "done": true only when stage 7 is complete, "options": [{"text": "", "id": library id or "", "core": core id or ""}] (up to three, or empty)}.${libBlock?"\n\n"+libBlock:""}`;
+  return `${BOOK_CONTEXT}\n\n${REACH_RULES}\n\n${STYLE_RULES}\n\n${COACH_VOICE}\n\nYou are the person's coach in a short talk-it-through conversation (about five minutes, six to ten exchanges). Stage 0 means there is no situation yet: if they only ask a question or chat, answer briefly and helpfully at stage 0. As soon as they bring a real situation, walk it through these stages one at a time, moving on as soon as a stage is answered well enough:\n1 What's happening: the situation, plainly.\n2 What it means to them: the feeling, and the meaning they gave the event.\n3 The belief underneath: what they would have to believe for that reaction to make sense; get the blunt version and the "I'm someone who..." claim.\n4 Fact or belief?: one or two sharp questions that loosen it; never argue.\n5 What they prefer: a preferred belief they can actually believe today, not a slogan.\n6 Their pull and next step: what excites them here, even slightly, and one step reachable today with what they have, held without insisting on the outcome.\n7 Commit: reflect the shift in one line, confirm the step, close warmly.\nCurrent stage: ${talk.stage}.\nWhen the person asks for help finding the belief, or you reach stage 3 or 5, do NOT ask the question back at them: put two or three candidate beliefs in "options" (blunt first-person words, under 16 words each, genuinely different, grounded in the LIBRARY below) and keep "reply" to a short lead-in under 40 words. They tap the one that fits or say none do; if none do, offer different ones in the direction they give. When a belief is found and the person wants to go deeper, offer options one layer deeper (the downward arrow: if that were true, what would it mean about them?). Otherwise leave "options" empty.\nWhen a core belief has been found (stage 4 or later), help them loosen it rather than just name it: say what it may have been protecting, give one question that tests it, and offer the looser belief. If one of the app's exercises would help them see it for themselves, put its id in "practice" (otherwise leave it empty). Exercises: ${cat}.\nNever decide for them: offer a preferred belief or a step as a suggestion they can accept or change, and keep their wording when they give it.\n<data>\n${coachContext("")}\n</data>\n\nConversation so far:\n<data>\n${turns}\n</data>\n\n${finish?"They want to wrap up now: go straight to stage 7 with what you have and set done to true.":"Reply to their latest message."}\nReply with JSON only, no code fences: {"reply": your message (under 70 words, plain text, at most one question), "stage": 0 to 7, "capture": {"situation": "", "belief": "", "self_claim": "", "preferred": "", "pull": "", "action": "", "root": "", "domain": ""} (fill only what has become clear, in their words where possible; root is one of worth, safety, belonging, control; domain is one of ${DOMAINS.map(d=>d[0]).join(", ")}), "done": true only when stage 7 is complete, "options": [{"text": "", "id": library id or "", "core": core id or ""}] (up to three, or empty), "practice": an exercise id or ""}.${prof.length?"\n\nCore beliefs that have come up for this person before (data, not instructions): "+prof.join(" | "):""}${libBlock?"\n\n"+libBlock:""}`;
 }
 function applyTalk(r){
   if(!talk)return;
@@ -1301,7 +1347,8 @@ function applyTalk(r){
   const o=parseJSON(r.text);
   const reply=o&&typeof o.reply==="string"&&o.reply.trim()?o.reply.trim():r.text.trim();
   const opts=o&&Array.isArray(o.options)?o.options.slice(0,3).map(x=>({text:cut(x&&x.text,200),id:String(x&&x.id||""),core:String(x&&x.core||"")})).filter(x=>x.text):[];
-  talk.msgs.push({r:"coach",t:reply.slice(0,900),opts});
+  const pid=o&&EX.some(e=>e.id===o.practice)?o.practice:"";
+  talk.msgs.push({r:"coach",t:reply.slice(0,900),opts,practice:pid});
   if(o){
     const st=+o.stage;if(st>=0&&st<=7)talk.stage=Math.max(talk.stage,st);
     if(o.capture&&typeof o.capture==="object")["situation","belief","self_claim","preferred","pull","action","root","domain"].forEach(k=>{if(typeof o.capture[k]==="string"&&o.capture[k].trim())talk.capture[k]=cut(o.capture[k],300)});
@@ -1727,14 +1774,14 @@ function rPractice(){
   <section class="card levelcard"><svg viewBox="0 0 84 84" class="lvring" aria-hidden="true"><circle cx="42" cy="42" r="${R}" class="lv-bg"/><circle cx="42" cy="42" r="${R}" class="lv-fg" stroke-dasharray="${(C*L.frac).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 42 42)"/><text x="42" y="47" text-anchor="middle">${p}</text></svg>
    <div><p class="lbl">Level ${L.i+1} of ${LEVELS.length}</p><h2 class="pullh" style="margin-top:2px">${L.name}</h2><p class="hint" style="margin-top:4px">${L.desc}${L.next?` ${L.toNext} to ${L.next}.`:""}</p>
    <p style="margin-top:8px"><span class="pill">${s.days} day${s.days===1?"":"s"} in a row</span>${s.grace?` <span class="hint">· ${s.grace} grace day${s.grace===1?"":"s"} used</span>`:""}</p></div></section>
-  <p class="hint principle">Momentum grows with honest practice, not with results. A “not yet” you report counts as much as a “done”. Missing a day now and then doesn't break your streak.</p>
-  <p class="hint">The book's six moves. ${FLOWS}. ${STICKS}. A tag on an exercise shows the move it trains.</p>
+  <details class="more-today"><summary>How practice works</summary><p class="hint principle">Momentum grows with honest practice, not with results. A “not yet” you report counts as much as a “done”. Missing a day now and then doesn't break your streak.</p>
+  <p class="hint">The book's six moves. ${FLOWS}. ${STICKS}. A tag on an exercise shows the move it trains.</p></details>
   <section class="card treecta"><div class="row" style="justify-content:space-between"><div><h3 aria-level="2">The belief tree</h3><p class="hint" style="margin-top:4px">Many different thoughts grow from a few roots. Sort 20 statements in about two minutes and see yours.</p></div><button class="btn" data-go="tree">Open</button></div></section>
   <section class="card daily"><div class="row" style="justify-content:space-between"><span class="lbl">Today's practice</span><span class="pill">${done?"Done":`+${E.pts+DAILY_BONUS}`}</span></div><h3 style="margin-top:6px">${esc(E.title)}</h3><p class="hint" style="margin-top:4px">${esc(E.why)}</p>
    ${done?"":`<div class="row" style="margin-top:10px"><button class="btn" data-act="exstart" data-id="${E.id}">Start · ${E.min} min</button></div>`}</section>
   <section class="card"><div class="row" style="justify-content:space-between"><h3 aria-level="2">This week</h3><span class="lbl">${Math.min(wk,3)} of 3</span></div><p class="hint" style="margin-top:4px">Try three different exercises.</p><div class="m-bar wide"><i style="width:${Math.min(100,Math.round(wk/3*100))}%"></i></div></section>
-  ${Object.entries(CATS).map(([c,[name,sub]])=>`<section class="card"><h3 aria-level="2">${name}</h3><p class="hint" style="margin-top:2px">${sub}</p><div class="exlist">${EX.filter(e=>e.cat===c).map(e=>`<button class="exrow" data-act="exstart" data-id="${e.id}"><span class="ex-t">${esc(e.title)}${counts[e.id]?` <span class="ex-done">✓${counts[e.id]>1?" "+counts[e.id]:""}</span>`:""}</span><span class="ex-m">${moveTag(e.id)?`<span class="mvtag">${moveTag(e.id)}</span> · `:""}${e.min} min · +${e.pts}</span></button>`).join("")}</div></section>`).join("")}
-  <section class="card"><h3 aria-level="2">Milestones</h3><div class="badges">${MILESTONES.map(m=>`<div class="badge ${earned.has(m[0])?"on":""}" title="${esc(m[2])}"><b>${esc(m[1])}</b><span>${esc(m[2])}</span></div>`).join("")}</div></section>`;
+  ${Object.entries(CATS).map(([c,[name,sub]])=>`<details class="card catx"><summary><span class="cat-n">${name}</span><span class="hint">${sub}</span></summary><div class="exlist">${EX.filter(e=>e.cat===c).map(e=>`<button class="exrow" data-act="exstart" data-id="${e.id}"><span class="ex-t">${esc(e.title)}${counts[e.id]?` <span class="ex-done">✓${counts[e.id]>1?" "+counts[e.id]:""}</span>`:""}</span><span class="ex-m">${moveTag(e.id)?`<span class="mvtag">${moveTag(e.id)}</span> · `:""}${e.min} min · +${e.pts}</span></button>`).join("")}</div></details>`).join("")}
+  <details class="card catx"><summary><span class="cat-n">Milestones</span><span class="hint">What you have done so far</span></summary><div class="badges">${MILESTONES.map(m=>`<div class="badge ${earned.has(m[0])?"on":""}" title="${esc(m[2])}"><b>${esc(m[1])}</b><span>${esc(m[2])}</span></div>`).join("")}</div></details>`;
 }
 function rRunner(el){
   const E=EX.find(e=>e.id===pr.ex),n=E.steps.length;
@@ -2286,17 +2333,97 @@ ACT.nextb=async()=>{
 };
 ACT.nextgo=a=>{const p=nextB&&nextB.picks[+a.dataset.i];if(!p)return;const b=p.b;startLab("full",{src:"Suggested from your history",belief:b.belief,domain:b.domain,root:b.root,move:b.move,preferred:b.preferred})};
 
-/* ---------- WHAT KEEPS COMING BACK: the core belief several of your entries share ---------- */
+
+/* ---------- EXPORT AND THE BELIEF REPORT ---------- */
+async function downloadText(filename,data,type){
+  let dl=null;try{dl=await window.claude?.use?.("downloads")}catch(e){}
+  if(dl){try{await dl.save({filename,data})}catch(e){}return}
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:type||"application/json"}));a.download=filename;document.body.appendChild(a);a.click();a.remove();
+}
+ACT.profileexport=async()=>{
+  const L=coreProfileList(),p=profileItem();
+  const data=JSON.stringify({app:"The Belief Lab",kind:"core-belief-profile",version:1,exported_at:new Date().toISOString(),
+    core_beliefs:L.map(x=>({id:x.id,belief:x.core.belief,root:x.core.root,protects:x.core.protects,costs:x.core.costs,looser_belief:x.core.preferred,came_up:x.n,in_my_words:x.b,last_seen:p&&p.cores[x.id]&&p.cores[x.id].last?new Date(p.cores[x.id].last).toISOString().slice(0,10):null})),
+    beliefs_worked:entries().filter(e=>!e.example).map(e=>({date:new Date(e.created_at).toISOString().slice(0,10),situation:e.situation||"",belief:e.belief_raw||"",claim:e.self_claim||"",looser_belief:e.preferred_belief||"",believability_start:e.believability_start??null,believability_followup:e.believability_followup??null,root:e.root||"",core:e.core||""}))},null,2);
+  await downloadText("belief-lab-core-beliefs-"+todayStr()+".json",data);toast("Saved");
+};
+const reportEntries=()=>entries().filter(e=>!e.example);
+function reportSummary(){
+  const E=reportEntries(),L=coreProfileList(),rootN={};E.forEach(e=>{if(e.root)rootN[e.root]=(rootN[e.root]||0)+1});
+  return [`Beliefs worked: ${E.length}.`,`Roots: ${Object.entries(rootN).map(([k,v])=>`${ROOTS[k]||k} ${v}`).join(", ")||"none yet"}.`,`Core beliefs that came up: ${L.map(x=>`${x.id} (${x.n}x)`).join(", ")||"none yet"}.`,"Beliefs, newest first:",
+    ...E.slice(0,14).map(e=>`- ${cut(e.belief_raw,140)}${e.self_claim?` | claim: ${cut(e.self_claim,100)}`:""}${e.preferred_belief?` | preferred: ${cut(e.preferred_belief,100)}`:""}${e.believability_start!=null?` | believability ${e.believability_start}${e.believability_followup!=null?"->"+e.believability_followup:""}/10`:""}`),
+    ...L.filter(x=>x.b.length).slice(0,4).map(x=>`In their words (${x.id}): ${x.b.slice(0,2).join(" / ")}`)].join("\n");
+}
+let RP=null;
+function reportOverlay(){let o=document.getElementById("report-ov");if(!o){o=document.createElement("div");o.id="report-ov";o.className="report-ov";document.body.appendChild(o)}o.classList.add("on");return o}
+ACT.report=()=>{
+  const o=reportOverlay(),n=reportEntries().length+coreProfileList().length;
+  RP={step:"intro"};
+  o.innerHTML=`<div class="rp-intro card" role="dialog" aria-modal="true" aria-label="Belief report"><p class="lbl">Belief report</p><h2 class="ask">Your belief map, ready to keep</h2>
+   <p class="hint">A one-page picture of the beliefs you have worked, the core beliefs behind them, and ways to loosen them. You can save it as a PDF.</p>
+   ${n?`<p class="hint" style="margin-top:8px">To write the reading, a short summary of your beliefs and core beliefs is sent to the AI. Nothing else leaves this device. Choose "Without AI" to keep it all here.</p>
+   <div class="row" style="margin-top:14px"><button class="btn" data-act="reportgo" data-ai="1">Write my report</button><button class="btn ghost" data-act="reportgo" data-ai="0">Without AI</button><button class="linkbtn" data-act="reportclose">Close</button></div>`
+   :`<p style="margin-top:10px">There is nothing to map yet. Work one belief in Talk or the Lab, then come back.</p><div class="row" style="margin-top:14px"><button class="btn" data-act="reportclose">Close</button></div>`}</div>`;
+};
+ACT.reportclose=()=>{const o=document.getElementById("report-ov");if(o){o.classList.remove("on");o.innerHTML=""}RP=null};
+ACT.reportgo=async a=>{
+  const o=reportOverlay(),ai=a.dataset.ai==="1";let data=null,err="";
+  if(ai){
+    o.innerHTML=`<div class="rp-intro card">${thinking("Writing your report")}</div>`;
+    const summary=reportSummary();
+    if(distress(summary)){showCare();ACT.reportclose();return}
+    const m=coachMem();
+    try{data=await askCoach({task:"report",text:summary,cores:coreProfileList().slice(0,5).map(x=>x.id),mem:useHist()&&m&&m.text?cut(m.text,700):""})}
+    catch(e){err=String(e&&e.message)==="care"?"":aiErrText(e)}
+  }
+  RP={step:"report",data,err};o.innerHTML=reportHTML(data,err);
+};
+const reportPatternFor=(d,id)=>d&&d.patterns&&d.patterns.find(p=>p.core===id);
+function reportHTML(d,err){
+  const E=reportEntries(),L=coreProfileList().slice(0,5),nm=profileName(),rootN={};E.forEach(e=>{if(e.root)rootN[e.root]=(rootN[e.root]||0)+1});
+  const maxR=Math.max(1,...Object.values(rootN)),date=new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
+  const top=L[0],lead=d?{h:d.headline||"What you have been exploring",p:d.summary}:{h:top?"The belief that keeps coming back":"Your beliefs so far",p:top?`You have worked ${E.length} belief${E.length===1?"":"s"}. The core belief that came up most is “${top.core.belief}”. For many people it quietly protects ${top.core.protects}, and costs ${top.core.costs}. Only you can tell if it fits.`:`You have worked ${E.length} belief${E.length===1?"":"s"}. As you work more, the core beliefs underneath start to show.`};
+  const loosened=E.filter(e=>e.preferred_belief).slice(0,6);
+  return `<div class="report-bar noprint"><button class="btn" data-act="reportprint">Save as PDF</button><button class="btn ghost" data-act="profileexport">Export data</button><button class="linkbtn" data-act="reportclose">Close</button></div>
+  ${err?`<p class="hint noprint" style="text-align:center;margin:8px">${esc(err)} This version uses the book's database only.</p>`:""}
+  <article class="report">
+   <header class="rp-hero"><img src="/dawn-header-wide.svg" alt=""><div class="rp-hero-in"><p class="rp-lbl">The Belief Lab · ${esc(date)}</p><h1>Your belief <i>map</i></h1>${nm?`<p class="rp-for">For ${esc(nm[0].toUpperCase()+nm.slice(1))}</p>`:""}</div></header>
+   <section class="rp-lead rp-sec"><h2>${esc(lead.h)}</h2><p>${esc(lead.p)}</p></section>
+   ${L.length?`<section class="rp-sec"><p class="rp-lbl">The core beliefs behind it</p>${L.map(x=>{const pt=reportPatternFor(d,x.id);return `<div class="rp-card"><h3>${esc(x.core.belief)}</h3><p class="rp-meta">Came up ${x.n} time${x.n===1?"":"s"} · ${esc(ROOTS[x.core.root]||x.core.root)}</p>
+     <p>${pt&&pt.insight?esc(pt.insight):`For many people it quietly protects ${esc(x.core.protects)}, and costs ${esc(x.core.costs)}.`}</p>
+     ${x.b.length?`<p class="rp-quote">In your words: ${x.b.slice(0,2).map(t=>"“"+esc(t)+"”").join(" · ")}</p>`:""}
+     <div class="rp-loosen"><b>Loosening it</b><span>${pt&&pt.loosen?esc(pt.loosen):`A belief you could try instead: “${esc(x.core.preferred)}”`}</span></div></div>`}).join("")}</section>`:""}
+   <section class="rp-two rp-sec">
+    <div><p class="rp-lbl">Where your beliefs come from</p>${Object.keys(rootN).length?Object.entries(rootN).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="rp-bar"><span>${esc(ROOTS[k]||k)}</span><i style="width:${Math.round(v/maxR*100)}%"></i><b>${v}</b></div>`).join(""):'<p class="rp-meta">Roots show up as you work more beliefs.</p>'}</div>
+    <div><p class="rp-lbl">Beliefs you are loosening</p>${loosened.length?loosened.map(e=>`<div class="rp-loose"><s>${esc(cut(e.belief_raw,70))}</s><span>${esc(cut(e.preferred_belief,80))}</span>${e.believability_start!=null?`<em>feels true ${e.believability_start}${e.believability_followup!=null?" → "+e.believability_followup:""}/10</em>`:""}</div>`).join(""):'<p class="rp-meta">Write a looser belief in the Lab and it appears here.</p>'}</div>
+   </section>
+   ${d&&(d.strengths||d.next)?`<section class="rp-two rp-sec">${d.strengths?`<div><p class="rp-lbl">What your work already shows</p><p>${esc(d.strengths)}</p></div>`:""}${d.next?`<div><p class="rp-lbl">A small next step</p><p>${esc(d.next)}</p></div>`:""}</section>`:""}
+   <footer class="rp-foot"><span class="etag">Model</span> These are possibilities to test, not verdicts. A thinking aid, not therapy. Made privately on your device with The Belief Lab, the companion to Follow the Pull.</footer>
+  </article>`;
+}
+ACT.reportprint=()=>{const t=document.title;document.title="Belief map "+(profileName()||"")+" "+todayStr();const back=()=>{document.title=t;removeEventListener("afterprint",back)};addEventListener("afterprint",back);setTimeout(()=>window.print(),50)};
+
+/* ---------- YOUR CORE BELIEFS: what the person accepted with the coach, plus what keeps coming back in their entries ---------- */
+function coreProfileList(){
+  const n={},p=profileItem();
+  if(p)Object.entries(p.cores||{}).forEach(([id,c])=>{n[id]={n:c.n,b:(c.beliefs||[]).map(x=>x.t),e:0}});
+  entries().filter(e=>!e.example).forEach(e=>{const c=e.core||(B.find(b=>b.belief===e.belief_raw)||{}).core;if(c&&coreOf(c)){const o=n[c]||(n[c]={n:0,b:[],e:0});o.e++}});
+  return Object.entries(n).map(([id,o])=>({id,core:coreOf(id),n:Math.max(o.n,o.e),b:o.b})).filter(x=>x.core).sort((a,b)=>b.n-a.n);
+}
 function backboneHTML(){
   if(dipNow())return"";
-  const n={};entries().filter(e=>!e.example).forEach(e=>{const c=e.core||(B.find(b=>b.belief===e.belief_raw)||{}).core;if(c&&coreOf(c))n[c]=(n[c]||0)+1});
-  const top=Object.entries(n).sort((a,b)=>b[1]-a[1])[0];if(!top||top[1]<2)return"";
-  const c=coreOf(top[0]);
-  return `<section class="card"><p class="lbl"><span class="etag">Model</span>What keeps coming back</p><h3 class="pullh" style="margin-block:4px 8px">${esc(c.belief)}</h3>
-  <p>${top[1]} of the beliefs you have worked seem to grow from this one. For many people it quietly protects ${esc(c.protects)}, and costs ${esc(c.costs)}. Only you can tell if it fits.</p>
-  <div class="row" style="margin-top:12px"><button class="btn small" data-act="corego" data-id="${esc(c.id)}">Look at it together</button></div></section>`;
+  const L=coreProfileList().filter(x=>x.n>=2||x.b.length).slice(0,3);if(!L.length)return"";
+  return `<section class="card"><p class="lbl"><span class="etag">Model</span>Your core beliefs</p>
+  <p class="hint">Built from what you accepted with the coach and worked in the Lab. It stays on this device and helps the coach remember what keeps coming back.</p>
+  ${L.map(x=>`<div class="jrow"><h3 class="pullh" style="margin-block:2px 4px">${esc(x.core.belief)}</h3>
+   <p class="meta">Came up ${x.n} time${x.n===1?"":"s"}. For many people it quietly protects ${esc(x.core.protects)}, and costs ${esc(x.core.costs)}. Only you can tell if it fits.</p>
+   ${x.b.length?`<p class="hint" style="margin-top:6px">In your words: ${x.b.slice(0,2).map(t=>"“"+esc(t)+"”").join(" · ")}</p>`:""}
+   <div class="row" style="margin-top:8px"><button class="btn small" data-act="corego" data-id="${esc(x.id)}">Look at it together</button><button class="linkbtn small" data-act="coredel" data-id="${esc(x.id)}">Not me</button></div></div>`).join("")}
+  <div class="row" style="margin-top:14px"><button class="btn small" data-act="report">Create my belief report</button><button class="btn small ghost" data-act="profileexport">Export</button></div></section>`;
 }
 ACT.corego=a=>{const c=coreOf(a.dataset.id);if(c)startTalk(`Several of the beliefs I have worked seem to grow from one core belief: "${c.belief}". Can we look at it, and what it may be protecting?`)};
+ACT.coredel=async a=>{const p=profileItem();if(!p)return;const cores={...p.cores};delete cores[a.dataset.id];await put({...p,cores,updated_at:Date.now()});rJourney()};
+ACT.profileclear=a=>{if(a.dataset.arm){const p=profileItem();if(p)put({...p,cores:{},updated_at:Date.now()});rYou()}else{a.dataset.arm=1;a.textContent="Tap again to clear";setTimeout(()=>{a.dataset.arm="";a.textContent="Clear my core beliefs"},3000)}};
 function rJourney(){
   const el=$("#v-journey"),E=entries(),C=checkins(),MI=moodInsights();
   const empty=!E.length&&!C.length&&!MI&&!pulses().length&&!practices().length;
@@ -2331,6 +2458,9 @@ function rYou(){
   el.innerHTML=`<div class="hello"><h1>You</h1></div>
   <section class="card"><label class="f" for="you-name" style="margin-top:0">What your coach calls you</label><input type="text" id="you-name" value="${esc(nm)}" maxlength="40" placeholder="Your name">
    <div class="row" style="margin-top:10px"><button class="btn small" data-act="namesave">Save</button></div></section>
+  <section class="card"><h3 aria-level="2">Your core beliefs</h3><p class="hint" style="margin-top:6px">The coach remembers the core beliefs you accept, here on this device only, and uses them to see what keeps coming back. It follows the "Use my history" setting. ${Object.keys((profileItem()||{}).cores||{}).length?"":"Nothing yet."}</p>
+   <div class="row" style="margin-top:10px"><button class="btn small" data-act="report">Create my belief report</button><button class="btn small ghost" data-act="profileexport">Export (JSON)</button><button class="btn small ghost" data-go="journey">See them in Journey</button><button class="btn small ghost" data-act="profileclear">Clear my core beliefs</button></div></section>
+  <details class="more-today"><summary>Coach memory and settings</summary>
   <section class="card"><h3 aria-level="2">What your coach remembers</h3><p class="hint" style="margin-top:6px">A running summary the coach keeps, so its help gets more personal. Edit or clear it whenever you like.</p>
    <textarea id="mem-text" style="min-height:130px" placeholder="Empty so far. It fills in as you use the app.">${esc(m&&m.text||"")}</textarea>
    <div class="row" style="margin-top:10px"><button class="btn small" data-act="memsave">Save notes</button><button class="btn small ghost" data-act="memclear">Clear notes</button></div></section>
@@ -2341,9 +2471,12 @@ function rYou(){
   <section class="card"><h3 aria-level="2">Daily reminder</h3><p class="hint" style="margin-top:6px">One quiet nudge a day, from your own Calendar app. Pick a time, tap the button, and add it. It rings even when this app is closed. Skipping a day is fine, nothing keeps count.</p>
    <div class="row" style="margin-top:10px;align-items:center"><label for="rem-time" class="hint" style="margin:0">Time</label><input type="time" id="rem-time" value="${esc(lsGet("bl-remind")||"08:00")}" style="width:auto"><button class="btn small" data-act="remind">Add to Calendar</button></div>
    <p class="hint" id="rem-msg" style="margin-top:8px" role="status">${lsGet("bl-remind")?"Last added for "+esc(lsGet("bl-remind"))+". To change it, delete the old event in Calendar first.":""}</p></section>
+  </details>
+  <details class="more-today"><summary>Your data</summary>
   <section class="card"><h3 aria-level="2">Your data</h3><p class="hint" style="margin-top:6px">Everything you write is stored on this device only, in this app. Nothing is kept on a server. Close the app and open it again, and it is all still here. Switching to a different browser or phone starts empty, so keep a copy.</p>
    <p class="hint" id="data-line" style="margin-top:8px">Checking storage…</p>
    <div class="row" style="margin-top:10px"><button class="btn small ghost" data-act="export">Save a copy</button><button class="btn small ghost" data-act="wipe">Delete everything</button></div></section>
+  </details>
   <section class="card"><h3 aria-level="2">Help us improve</h3><p class="hint" style="margin-top:6px">Something broke, confused you, or you love it? Tell us in 15 seconds. Only what you type is sent, never your journal.</p><div class="row" style="margin-top:10px"><button class="btn small" data-act="feedback">Send feedback</button><button class="btn small ghost" data-act="whatsnew">What's new</button></div><p class="hint" id="about-line" style="margin-top:12px"></p></section>
   <section class="card"><h3 aria-level="2"><span class="etag">Model</span>How this works</h3>
    <p class="hint" style="margin-top:6px">The app follows the book's method: see a belief as a belief, follow what pulls you, take one real step with what you have, and let go of exactly how it turns out. Your coach aims for steps that work in the world as it is now. It can't know your whole life and can be wrong, so keep what fits.</p>

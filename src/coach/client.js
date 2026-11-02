@@ -1,12 +1,18 @@
 // Runs the coaching engine inside the app. Used when there is no server to do it: your own key on the device, or the claude.ai viewer.
-import { makeDb, buildPrompt, normalize, localFallback } from "./engine.js";
+import { makeDb, buildPrompt, normalize, localFallback, buildReportPrompt, normalizeReport } from "./engine.js";
 let DB;
 export const getDb = async () => (DB ||= makeDb((await import("../../data/beliefs_seed.json")).default));
 
 export async function coachLocal(payload, sample) {
   const db = await getDb();
+  if (payload.task === "report") {
+    const rr = await sample(buildReportPrompt({ db, summary: payload.text, cores: payload.cores, mem: payload.mem }), { cache: false, json: true });
+    const rep = normalizeReport(rr.text, db);
+    if (!rep) throw new Error("ai shape");
+    return rep;
+  }
   const r = await sample(buildPrompt({ db, ...payload }), { cache: false, json: true });
-  const data = normalize(r.text, db);
+  const data = normalize(r.text, db, { converse: !!(payload.feedback && payload.feedback.reply) });
   if (!data) throw new Error("ai shape");
   return data;
 }
