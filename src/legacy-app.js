@@ -677,7 +677,7 @@ function rerender(force){
   const p=NAV_PARENT[cur]||cur;
   $("#nav").innerHTML=VIEWS.map(([k,l])=>`<button data-go="${k}" ${k===p?'aria-current="page"':""}><svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg><span>${l}</span></button>`).join("");
   const me=$("#me"),nm=profileName();if(me){me.innerHTML=nm?esc(nm[0].toUpperCase()):PERSON_SVG;me.setAttribute("aria-current",cur==="you"?"page":"false")}
-  document.body.classList.toggle("bare",cur==="welcome");
+  document.body.classList.toggle("bare",cur==="welcome");document.body.dataset.view=cur;
   if(!document.getElementById("pulsefab")){const f=document.createElement("button");f.id="pulsefab";f.className="pulsefab";f.setAttribute("data-act","pulse");f.setAttribute("aria-label","Pulse: how are you right now?");f.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg><span>Pulse</span>';document.body.appendChild(f)}
   document.querySelectorAll("section.view").forEach(s=>s.classList.toggle("on",s.id==="v-"+cur));
   RENDER[cur]();
@@ -1012,9 +1012,9 @@ function rToday(){
   if(!store.ready){el.innerHTML=`<div class="hello"><h1>${greet()}.</h1></div>${thinking("Opening your space")}`;return}
   if(needsWelcome()){cur="welcome";rerender(true);return}
   const nm=profileName();
-  el.innerHTML=`<div class="hello"><p class="lbl">${esc(dateLabel())}</p><h1>${greet()}${nm?", "+esc(nm):""}.</h1></div>
-  ${backupCard()}${momentumHTML()}
-  <div id="checkin"></div><div id="ritual"></div><div id="statecard"></div><div id="day"></div><div id="dailyp"></div><div id="due"></div>${weekHTML()}`;
+  el.innerHTML=`<div class="hello"><p class="lbl">${esc(dateLabel())}</p><h1>${greet()}${nm?", <i>"+esc(nm)+".</i>":"."}</h1></div>
+  ${backupCard()}
+  <div id="checkin"></div>${momentumHTML()}<div id="ritual"></div><div id="statecard"></div><div id="day"></div><div id="dailyp"></div><div id="due"></div>${weekHTML()}`;
   rCheckin();rRitual();rStateCard();rDay();rDaily();rDue();
 }
 function rRitual(){
@@ -1274,7 +1274,7 @@ const damOn=()=>cf&&!cf.saved&&cf.grip==="tight"&&!(cf.fear.trim()&&cf.then.trim
 function rCompass(){
   const el=$("#v-compass");if(!cf)cf=newCf();
   const lab=cf.saved?"Committed":cf.step<4?`Step ${cf.step} of 3`:"Ready to commit";
-  el.innerHTML=`<div class="hello"><h1>Compass</h1><p class="lede">Follow what pulls you. Take one real step. Let go of exactly how it turns out.</p></div>
+  el.innerHTML=`<div class="hello"><h1>What pulls you today, <i>even a little?</i></h1><p class="lede">Follow what pulls you. Take one real step. Let go of exactly how it turns out.</p></div>
   <section class="card compass"><div class="cf-head"><span class="lbl">${lab}</span><button class="linkbtn" data-act="breathe">Tense? Breathe first</button></div>
    <svg class="river" id="river" viewBox="0 0 600 150" role="img" aria-label="Your progress down the river: pull, step, let go">
     <path class="bed" id="rp" d="M20 95 C110 30 160 140 240 85 S380 25 440 85 S540 130 584 60"/><path class="flow" d="M20 95 C110 30 160 140 240 85 S380 25 440 85 S540 130 584 60"/>

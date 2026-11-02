@@ -29,7 +29,7 @@ export default defineConfig(({ mode }) => mode === "artifact" ? {
         id: "/", name: "The Belief Lab", short_name: "Belief Lab",
         description: "A private companion to Follow the Pull.",
         start_url: "/", scope: "/", display: "standalone", orientation: "portrait",
-        background_color: "#F3EEE3", theme_color: "#F3EEE3",
+        background_color: "#EEF2F3", theme_color: "#EEF2F3",
         icons: [
           { src: "icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "icon-512.png", sizes: "512x512", type: "image/png" },
