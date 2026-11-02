@@ -141,7 +141,7 @@ They live in the repository (Claude Code moves them to `.claude/skills/` in Phas
 
 ## 10. Decisions Claude Code will ask you about
 
-- **The title:** *Follow the Pull* everywhere? The old app still says "Break the Loop".
+- **The title:** *Follow the Pull* everywhere (confirmed by the owner). The app itself keeps its name, The Belief Lab, as in Appendix H.
 - **Dutch:** informal "je", and your preferred Dutch words for the book's terms ("the pull", "the Script").
 - **Age:** state "for adults (18+)" in onboarding? Recommended.
 - **Anonymous usage counts:** opt-in for testers? They show where people drop off, without reading anything they write.
